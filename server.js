@@ -39,8 +39,24 @@ function getIP(ws) {
   return ws._socket.remoteAddress;
 }
 
-// Enhanced maze generation with more complexity
-function generateMaze(width, height) {
+// Generate random maze parameters
+function getRandomMazeParams() {
+  const difficulties = [
+    { size: [15, 11], extraPaths: 0.06, deadEnds: 0.04, falsePaths: 0.02, name: "Easy" },
+    { size: [21, 15], extraPaths: 0.10, deadEnds: 0.08, falsePaths: 0.05, name: "Medium" },
+    { size: [27, 19], extraPaths: 0.13, deadEnds: 0.10, falsePaths: 0.07, name: "Hard" },
+    { size: [33, 23], extraPaths: 0.16, deadEnds: 0.12, falsePaths: 0.09, name: "Very Hard" },
+    { size: [39, 27], extraPaths: 0.20, deadEnds: 0.15, falsePaths: 0.12, name: "Extreme" }
+  ];
+  
+  return difficulties[Math.floor(Math.random() * difficulties.length)];
+}
+
+// Enhanced maze generation with variable difficulty
+function generateMaze(params = null) {
+  if (!params) params = getRandomMazeParams();
+  
+  const [width, height] = params.size;
   const maze = Array.from({ length: height }, () => Array(width).fill(1)); // 1=wall, 0=path
   function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
   
@@ -62,13 +78,12 @@ function generateMaze(width, height) {
   maze[1][1] = 0; // Start
   maze[height-2][width-2] = 0; // End
   
-  // Add additional complexity - create more paths and loops
-  const extraPaths = Math.floor((width * height) * 0.15); // 15% more paths (increased from 8%)
+  // Add additional complexity based on difficulty
+  const extraPaths = Math.floor((width * height) * params.extraPaths);
   for (let i = 0; i < extraPaths; i++) {
     const x = Math.floor(Math.random() * (width - 2)) + 1;
     const y = Math.floor(Math.random() * (height - 2)) + 1;
     
-    // Only carve if it's a wall and has path neighbors
     if (maze[y][x] === 1) {
       let pathNeighbors = 0;
       const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
@@ -78,31 +93,27 @@ function generateMaze(width, height) {
           pathNeighbors++;
         }
       }
-      // Create path if it has 1-3 path neighbors (creates loops and connections)
       if (pathNeighbors >= 1 && pathNeighbors <= 3) {
         maze[y][x] = 0;
       }
     }
   }
   
-  // Add many more dead ends for extra difficulty
-  const deadEnds = Math.floor((width * height) * 0.12); // 12% dead ends (increased from 5%)
+  // Add dead ends based on difficulty
+  const deadEnds = Math.floor((width * height) * params.deadEnds);
   for (let i = 0; i < deadEnds; i++) {
     const x = Math.floor(Math.random() * (width - 4)) + 2;
     const y = Math.floor(Math.random() * (height - 4)) + 2;
     
-    // Create a longer dead end branch
     if (maze[y][x] === 1) {
       const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
       const connectDir = dirs[Math.floor(Math.random() * dirs.length)];
       const [dx, dy] = connectDir;
       
-      // Check if we can connect to an existing path
       if (x + dx >= 0 && x + dx < width && y + dy >= 0 && y + dy < height && maze[y + dy][x + dx] === 0) {
         maze[y][x] = 0;
         
-        // Extend the dead end 2-4 cells in random directions
-        const length = Math.floor(Math.random() * 3) + 2; // 2-4 cells
+        const length = Math.floor(Math.random() * 3) + 2;
         let currentX = x, currentY = y;
         
         for (let j = 1; j <= length; j++) {
@@ -124,15 +135,14 @@ function generateMaze(width, height) {
     }
   }
   
-  // Add some false paths that loop back (red herrings)
-  const falsePaths = Math.floor((width * height) * 0.08); // 8% false paths
+  // Add false paths based on difficulty
+  const falsePaths = Math.floor((width * height) * params.falsePaths);
   for (let i = 0; i < falsePaths; i++) {
     const x = Math.floor(Math.random() * (width - 6)) + 3;
     const y = Math.floor(Math.random() * (height - 6)) + 3;
     
     if (maze[y][x] === 1) {
-      // Create a path that curves back to itself
-      const pathLength = Math.floor(Math.random() * 4) + 3; // 3-6 cells
+      const pathLength = Math.floor(Math.random() * 4) + 3;
       let currentX = x, currentY = y;
       maze[currentY][currentX] = 0;
       
@@ -155,10 +165,12 @@ function generateMaze(width, height) {
     }
   }
   
-  return maze;
+  return { maze, params };
 }
 
-let maze = generateMaze(31, 21); // Larger maze for more difficulty
+let mazeData = generateMaze(); // Generate random maze
+let maze = mazeData.maze;
+let currentDifficulty = mazeData.params;
 const MAZE_CELL_SIZE = 30;
 
 // Collision point offset (relative to sprite center)
@@ -168,7 +180,13 @@ const collisionOffsetY = 5;
 function broadcastMaze() {
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: 'maze', maze, cellSize: MAZE_CELL_SIZE }));
+      client.send(JSON.stringify({ 
+        type: 'maze', 
+        maze, 
+        cellSize: MAZE_CELL_SIZE,
+        difficulty: currentDifficulty.name,
+        size: `${currentDifficulty.size[0]}x${currentDifficulty.size[1]}`
+      }));
     }
   });
 }
@@ -295,10 +313,19 @@ wss.on('connection', ws => {
       if (winCellX === maze[0].length-2 && winCellY === maze.length-2) {
         wss.clients.forEach(client => {
           if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: 'winner', username: currentUser }));
+            client.send(JSON.stringify({ 
+              type: 'winner', 
+              username: currentUser,
+              difficulty: currentDifficulty.name,
+              size: `${currentDifficulty.size[0]}x${currentDifficulty.size[1]}`
+            }));
           }
         });
-        maze = generateMaze(31, 21);
+        // Generate new random maze with different difficulty
+        mazeData = generateMaze();
+        maze = mazeData.maze;
+        currentDifficulty = mazeData.params;
+        console.log(`New ${currentDifficulty.name} maze generated (${currentDifficulty.size[0]}x${currentDifficulty.size[1]})`);
         broadcastMaze();
         Object.values(users).forEach(u => { u.x = MAZE_CELL_SIZE + 8; u.y = MAZE_CELL_SIZE + 8; });
       }
