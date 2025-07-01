@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <title>Stream Joystick Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,16 +17,14 @@
     <div class="side-panel">
       <div class="panel">
         <select id="vikingNameSelect"></select>
-        <input id="nameDigits" type="text" maxlength="2" pattern="[0-9]{0,2}" placeholder="00" title="Optional: 2 digits" />
+        <input id="nameDigits" type="text" maxlength="2" pattern="[0-9]{0,2}" placeholder="00" style="width:36px;text-align:center;font-size:1.1em;margin-left:6px;" title="Optional: 2 digits" />
         <input type="color" id="color" title="Pick your color" />
         <button id="enterBtn">Enter</button>
       </div>
-      <div id="playerList" class="player-list">
-        <h3>Players</h3>
-      </div>
+      <div id="playerList" class="player-list"></div>
     </div>
     <div class="maze-panel">
-      <div id="maze"></div>
+      <div id="maze" style="position:relative;"></div>
       <div id="controls" class="controls-panel">
         <button class="dir-btn" data-dir="up-left">↖<span class="dir-hint">Q</span></button>
         <button class="dir-btn" data-dir="up">↑<span class="dir-hint">W</span></button>
@@ -37,6 +36,7 @@
         <button class="dir-btn" data-dir="down">↓<span class="dir-hint">S</span></button>
         <button class="dir-btn" data-dir="down-right">↘<span class="dir-hint">C</span></button>
       </div>
+      <div id="joystick" style="margin:32px auto 0 auto;"></div>
     </div>
   </div>
   <div class="footer">
@@ -280,106 +280,52 @@ function renderPlayers(users) {
   });
 }
 
-// Multi-key keyboard controls
-const pressedKeys = new Set();
-let movementInterval = null;
-
-function updateMovement() {
-  if (!joined || pressedKeys.size === 0) return;
-  
-  let vertical = 0;
-  let horizontal = 0;
-  
-  // Check vertical movement
-  if (pressedKeys.has('w') || pressedKeys.has('ArrowUp')) vertical = 1;
-  if (pressedKeys.has('s') || pressedKeys.has('ArrowDown')) vertical = -1;
-  
-  // Check horizontal movement
-  if (pressedKeys.has('a') || pressedKeys.has('ArrowLeft')) horizontal = -1;
-  if (pressedKeys.has('d') || pressedKeys.has('ArrowRight')) horizontal = 1;
-  
-  // Check diagonal keys
-  if (pressedKeys.has('q')) { vertical = 1; horizontal = -1; }
-  if (pressedKeys.has('e')) { vertical = 1; horizontal = 1; }
-  if (pressedKeys.has('z')) { vertical = -1; horizontal = -1; }
-  if (pressedKeys.has('c')) { vertical = -1; horizontal = 1; }
-  
-  // Determine direction
-  let dir = null;
-  if (vertical === 1 && horizontal === 0) dir = 'up';
-  else if (vertical === -1 && horizontal === 0) dir = 'down';
-  else if (vertical === 0 && horizontal === -1) dir = 'left';
-  else if (vertical === 0 && horizontal === 1) dir = 'right';
-  else if (vertical === 1 && horizontal === -1) dir = 'up-left';
-  else if (vertical === 1 && horizontal === 1) dir = 'up-right';
-  else if (vertical === -1 && horizontal === -1) dir = 'down-left';
-  else if (vertical === -1 && horizontal === 1) dir = 'down-right';
-  
-  if (dir) {
-    sendDirection(dir);
-  }
-}
-
-function startMovementInterval() {
-  console.log('START INTERVAL REQUEST - current state:', { movementInterval, isJoystickActive, joystickDirection, pressedKeysSize: pressedKeys.size });
-  if (!movementInterval) {
-    movementInterval = setInterval(updateMovement, 100);
-    console.log('INTERVAL STARTED:', movementInterval);
-  } else {
-    console.log('INTERVAL ALREADY RUNNING:', movementInterval);
-  }
-}
-
-function stopMovementInterval() {
-  console.log('STOP INTERVAL REQUEST - current state:', { movementInterval, isJoystickActive, joystickDirection, pressedKeysSize: pressedKeys.size });
-  
-  // Only stop if BOTH keyboard and joystick are inactive
-  const shouldStop = pressedKeys.size === 0 && !isJoystickActive;
-  
-  if (shouldStop && movementInterval) {
-    clearInterval(movementInterval);
-    movementInterval = null;
-    console.log('INTERVAL STOPPED');
-  } else {
-    console.log('INTERVAL KEPT RUNNING - keyboard:', pressedKeys.size, 'joystick:', isJoystickActive);
-  }
-}
-
-function stopMovementInterval() {
-  if (pressedKeys.size === 0 && !isJoystickActive && movementInterval) {
-    clearInterval(movementInterval);
-    movementInterval = null;
-  }
-}
-
+// Add keyboard controls
 window.addEventListener('keydown', function(e) {
   if (!joined) return;
-  const key = e.key.toLowerCase();
-  const validKeys = ['w', 's', 'a', 'd', 'q', 'e', 'z', 'c', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
-  
-  if (validKeys.includes(key)) {
-    pressedKeys.add(key);
+  let dir = null;
+  if (e.key === 'w' || e.key === 'ArrowUp') dir = 'up';
+  else if (e.key === 's' || e.key === 'ArrowDown') dir = 'down';
+  else if (e.key === 'a' || e.key === 'ArrowLeft') dir = 'left';
+  else if (e.key === 'd' || e.key === 'ArrowRight') dir = 'right';
+  else if (e.key === 'q') dir = 'up-left';
+  else if (e.key === 'e') dir = 'up-right';
+  else if (e.key === 'z') dir = 'down-left';
+  else if (e.key === 'c') dir = 'down-right';
+  if (dir) {
+    sendDirection(dir);
     e.preventDefault();
-    
-    // Start movement interval if not already running
-    if (!movementInterval) {
-      movementInterval = setInterval(updateMovement, 100); // Update every 100ms
-    }
   }
 });
 
-window.addEventListener('keyup', function(e) {
-  if (!joined) return;
-  const key = e.key.toLowerCase();
-  pressedKeys.delete(key);
-  
-  // Stop movement interval if no keys are pressed
-  if (pressedKeys.size === 0 && movementInterval) {
-    clearInterval(movementInterval);
-    movementInterval = null;
+// Joystick for mobile
+if (window.innerWidth < 700 || /Mobi|Android/i.test(navigator.userAgent)) {
+  const joystickZone = document.getElementById('joystick');
+  if (joystickZone) {
+    const joystick = nipplejs.create({
+      zone: joystickZone,
+      mode: 'static',
+      position: { left: '50%', top: '50%' },
+      color: '#5a6cff',
+      size: 120
+    });
+    joystick.on('dir', function(evt, data) {
+      if (!data || !data.direction) return;
+      let dir = data.direction.angle;
+      // Map nipplejs direction to game direction
+      let gameDir = null;
+      if (dir === 'up') gameDir = 'up';
+      else if (dir === 'down') gameDir = 'down';
+      else if (dir === 'left') gameDir = 'left';
+      else if (dir === 'right') gameDir = 'right';
+      else if (dir === 'up left') gameDir = 'up-left';
+      else if (dir === 'up right') gameDir = 'up-right';
+      else if (dir === 'down left') gameDir = 'down-left';
+      else if (dir === 'down right') gameDir = 'down-right';
+      if (gameDir) sendDirection(gameDir);
+    });
   }
-});
-
+}
   </script>
 </body>
 </html>

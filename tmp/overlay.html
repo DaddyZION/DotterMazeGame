@@ -43,10 +43,12 @@
 <body>
   <div id="overlay"></div>
   <div id="maze"></div>
+  <div id="scoreboard" style="position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#18183aee;color:#ffd700;font-size:2rem;padding:10px 36px;border-radius:18px;z-index:100000;text-align:center;box-shadow:0 2px 24px #000a;letter-spacing:0.04em;min-width:320px;display:none;"></div>
   <script>
 const socket = new WebSocket('wss://medieval-saba-daddyzion-57e9a7c2.koyeb.app/');
 const overlay = document.getElementById('overlay');
 const characters = {}; // username: { div, x, y, tx, ty, color }
+const scores = {};
 
 // List of sprite filenames (add more as you add them to the sprites folder)
 const SPRITES = [
@@ -74,42 +76,15 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-let maze = [], cellSize = 64, scaleFactor = 1, startPos = [1, 1], endPos = [];
-
-// Define target viewport size for consistent maze display
-const TARGET_MAZE_WIDTH = 800;  // Target width in pixels
-const TARGET_MAZE_HEIGHT = 600; // Target height in pixels
-
+let maze = [], cellSize = 64;
 function renderMaze() {
   const mazeDiv = document.getElementById('maze');
   mazeDiv.innerHTML = '';
-  
-  // Calculate actual maze dimensions
-  const actualWidth = maze[0].length * cellSize;
-  const actualHeight = maze.length * cellSize;
-  
-  // Calculate scale factor to fit within target viewport
-  const scaleX = TARGET_MAZE_WIDTH / actualWidth;
-  const scaleY = TARGET_MAZE_HEIGHT / actualHeight;
-  scaleFactor = Math.min(scaleX, scaleY); // Use smaller scale to maintain aspect ratio
-  
-  // Apply scaling
-  const scaledWidth = actualWidth * scaleFactor;
-  const scaledHeight = actualHeight * scaleFactor;
-  const scaledCellSize = cellSize * scaleFactor;
-  
-  // Center the maze in the overlay
-  const offsetX = (1920 - scaledWidth) / 2;
-  const offsetY = (1080 - scaledHeight) / 2;
-  
   mazeDiv.style.position = 'absolute';
-  mazeDiv.style.left = offsetX + 'px';
-  mazeDiv.style.top = offsetY + 'px';
-  mazeDiv.style.width = scaledWidth + 'px';
-  mazeDiv.style.height = scaledHeight + 'px';
-  mazeDiv.style.transform = `scale(${scaleFactor})`;
-  mazeDiv.style.transformOrigin = '0 0';
-  
+  mazeDiv.style.left = 0;
+  mazeDiv.style.top = 0;
+  mazeDiv.style.width = (maze[0].length * cellSize) + 'px';
+  mazeDiv.style.height = (maze.length * cellSize) + 'px';
   for (let y = 0; y < maze.length; y++) {
     for (let x = 0; x < maze[0].length; x++) {
       const cell = document.createElement('div');
@@ -124,12 +99,21 @@ function renderMaze() {
       } else {
         cell.style.background = '#eee2';
       }
-      // Dynamic start and end positions
-      if (x === startPos[0] && y === startPos[1]) cell.style.background = '#0a0'; // Start (green)
-      if (x === endPos[0] && y === endPos[1]) cell.style.background = '#a00'; // End (red)
+      if (x === 1 && y === 1) cell.style.background = '#0f08'; // Start
+      if (x === maze[0].length-2 && y === maze.length-2) cell.style.background = '#0f08'; // End
       mazeDiv.appendChild(cell);
     }
   }
+}
+
+function updateScoreboard() {
+  const board = document.getElementById('scoreboard');
+  const entries = Object.entries(scores)
+    .sort((a, b) => b[1] - a[1])
+    .map(([user, score]) => `<span style='color:#ffd700;'>${user}</span>: <b>${score}</b>`)
+    .join(' &nbsp; | &nbsp; ');
+  board.innerHTML = entries || 'No wins yet';
+  board.style.display = 'block';
 }
 
 socket.onmessage = function(event) {
@@ -137,12 +121,11 @@ socket.onmessage = function(event) {
   if (msg.type === 'maze') {
     maze = msg.maze;
     cellSize = msg.cellSize;
-    startPos = msg.startPos || [1, 1];
-    endPos = msg.endPos || [maze[0].length-2, maze.length-2];
     renderMaze();
   }
   if (msg.type === 'winner') {
-    // Winner handling removed - no scoreboard
+    scores[msg.username] = (scores[msg.username] || 0) + 1;
+    updateScoreboard();
   }
   if (msg.type === 'state') {
     Object.values(characters).forEach(c => c.updated = false);
@@ -176,24 +159,15 @@ socket.onmessage = function(event) {
       // Set glow color
       const glow = user.glow || '#ffd700';
       c.div.style.filter = `drop-shadow(0 0 8px ${glow}cc) drop-shadow(0 0 4px #fff8)`;
-      
-      // Calculate scaled and centered position
-      const actualWidth = maze[0].length * cellSize;
-      const actualHeight = maze.length * cellSize;
-      const scaledWidth = actualWidth * scaleFactor;
-      const scaledHeight = actualHeight * scaleFactor;
-      const offsetX = (1920 - scaledWidth) / 2;
-      const offsetY = (1080 - scaledHeight) / 2;
-      
-      // Center the sprite on the collision point with scaling
+      // Center the sprite on the collision point
       if (typeof user.collisionX === 'number' && typeof user.collisionY === 'number') {
         c.collisionX = user.collisionX;
         c.collisionY = user.collisionY;
-        c.tx = offsetX + (user.collisionX * scaleFactor) - 7;
-        c.ty = offsetY + (user.collisionY * scaleFactor) - 7;
+        c.tx = user.collisionX - 7;
+        c.ty = user.collisionY - 7;
       } else {
-        c.tx = offsetX + (user.x * scaleFactor);
-        c.ty = offsetY + (user.y * scaleFactor);
+        c.tx = user.x;
+        c.ty = user.y;
       }
       c.updated = true;
     });
@@ -204,7 +178,7 @@ socket.onmessage = function(event) {
         delete characters[username];
       }
     }
-    // Remove scoreboard update call
+    updateScoreboard(); // Also update scoreboard on state
   }
 };
 

@@ -3,9 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Stream Joystick Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,14 +15,16 @@
     <div class="side-panel">
       <div class="panel">
         <select id="vikingNameSelect"></select>
-        <input id="nameDigits" type="text" maxlength="2" pattern="[0-9]{0,2}" placeholder="00" style="width:36px;text-align:center;font-size:1.1em;margin-left:6px;" title="Optional: 2 digits" />
+        <input id="nameDigits" type="text" maxlength="2" pattern="[0-9]{0,2}" placeholder="00" title="Optional: 2 digits" />
         <input type="color" id="color" title="Pick your color" />
         <button id="enterBtn">Enter</button>
       </div>
-      <div id="playerList" class="player-list"></div>
+      <div id="playerList" class="player-list">
+        <h3>Players</h3>
+      </div>
     </div>
     <div class="maze-panel">
-      <div id="maze" style="position:relative;"></div>
+      <div id="maze"></div>
       <div id="controls" class="controls-panel">
         <button class="dir-btn" data-dir="up-left">↖<span class="dir-hint">Q</span></button>
         <button class="dir-btn" data-dir="up">↑<span class="dir-hint">W</span></button>
@@ -36,7 +36,7 @@
         <button class="dir-btn" data-dir="down">↓<span class="dir-hint">S</span></button>
         <button class="dir-btn" data-dir="down-right">↘<span class="dir-hint">C</span></button>
       </div>
-      <div id="joystick" style="margin:32px auto 0 auto;"></div>
+      <div id="joystick"></div>
     </div>
   </div>
   <div class="footer">
@@ -280,51 +280,249 @@ function renderPlayers(users) {
   });
 }
 
-// Add keyboard controls
-window.addEventListener('keydown', function(e) {
+// Multi-key keyboard controls
+const pressedKeys = new Set();
+let movementInterval = null;
+
+// Joystick state
+let joystickDirection = null;
+let isJoystickActive = false;
+
+function updateMovement() {
   if (!joined) return;
+  
   let dir = null;
-  if (e.key === 'w' || e.key === 'ArrowUp') dir = 'up';
-  else if (e.key === 's' || e.key === 'ArrowDown') dir = 'down';
-  else if (e.key === 'a' || e.key === 'ArrowLeft') dir = 'left';
-  else if (e.key === 'd' || e.key === 'ArrowRight') dir = 'right';
-  else if (e.key === 'q') dir = 'up-left';
-  else if (e.key === 'e') dir = 'up-right';
-  else if (e.key === 'z') dir = 'down-left';
-  else if (e.key === 'c') dir = 'down-right';
+  
+  // Check joystick first (joystick takes priority over keyboard)
+  if (isJoystickActive && joystickDirection) {
+    dir = joystickDirection;
+  }
+  // If no joystick input, check keyboard
+  else if (pressedKeys.size > 0) {
+    let vertical = 0;
+    let horizontal = 0;
+    
+    // Check vertical movement
+    if (pressedKeys.has('w') || pressedKeys.has('ArrowUp')) vertical = 1;
+    if (pressedKeys.has('s') || pressedKeys.has('ArrowDown')) vertical = -1;
+    
+    // Check horizontal movement
+    if (pressedKeys.has('a') || pressedKeys.has('ArrowLeft')) horizontal = -1;
+    if (pressedKeys.has('d') || pressedKeys.has('ArrowRight')) horizontal = 1;
+    
+    // Check diagonal keys
+    if (pressedKeys.has('q')) { vertical = 1; horizontal = -1; }
+    if (pressedKeys.has('e')) { vertical = 1; horizontal = 1; }
+    if (pressedKeys.has('z')) { vertical = -1; horizontal = -1; }
+    if (pressedKeys.has('c')) { vertical = -1; horizontal = 1; }
+    
+    // Determine direction
+    if (vertical === 1 && horizontal === 0) dir = 'up';
+    else if (vertical === -1 && horizontal === 0) dir = 'down';
+    else if (vertical === 0 && horizontal === -1) dir = 'left';
+    else if (vertical === 0 && horizontal === 1) dir = 'right';
+    else if (vertical === 1 && horizontal === -1) dir = 'up-left';
+    else if (vertical === 1 && horizontal === 1) dir = 'up-right';
+    else if (vertical === -1 && horizontal === -1) dir = 'down-left';
+    else if (vertical === -1 && horizontal === 1) dir = 'down-right';
+  }
+  
   if (dir) {
     sendDirection(dir);
+  }
+}
+
+window.addEventListener('keydown', function(e) {
+  if (!joined) return;
+  const key = e.key.toLowerCase();
+  const validKeys = ['w', 's', 'a', 'd', 'q', 'e', 'z', 'c', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
+  
+  if (validKeys.includes(key)) {
+    pressedKeys.add(key);
     e.preventDefault();
+    
+    // Start movement interval if not already running
+    if (!movementInterval) {
+      movementInterval = setInterval(updateMovement, 100);
+    }
   }
 });
 
-// Joystick for mobile
-if (window.innerWidth < 700 || /Mobi|Android/i.test(navigator.userAgent)) {
-  const joystickZone = document.getElementById('joystick');
-  if (joystickZone) {
-    const joystick = nipplejs.create({
-      zone: joystickZone,
-      mode: 'static',
-      position: { left: '50%', top: '50%' },
-      color: '#5a6cff',
-      size: 120
-    });
-    joystick.on('dir', function(evt, data) {
-      if (!data || !data.direction) return;
-      let dir = data.direction.angle;
-      // Map nipplejs direction to game direction
-      let gameDir = null;
-      if (dir === 'up') gameDir = 'up';
-      else if (dir === 'down') gameDir = 'down';
-      else if (dir === 'left') gameDir = 'left';
-      else if (dir === 'right') gameDir = 'right';
-      else if (dir === 'up left') gameDir = 'up-left';
-      else if (dir === 'up right') gameDir = 'up-right';
-      else if (dir === 'down left') gameDir = 'down-left';
-      else if (dir === 'down right') gameDir = 'down-right';
-      if (gameDir) sendDirection(gameDir);
-    });
+window.addEventListener('keyup', function(e) {
+  if (!joined) return;
+  const key = e.key.toLowerCase();
+  pressedKeys.delete(key);
+  
+  // Stop movement interval if no keys are pressed and joystick is not active
+  if (pressedKeys.size === 0 && !isJoystickActive && movementInterval) {
+    clearInterval(movementInterval);
+    movementInterval = null;
   }
+});
+
+// Custom mobile joystick - works on all mobile browsers
+const joystickZone = document.getElementById('joystick');
+
+if (joystickZone) {
+  // Create joystick elements
+  joystickZone.innerHTML = `
+    <div id="joystick-base" style="
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      border: 2px solid rgba(255,255,255,0.4);
+      position: relative;
+      margin: 0 auto;
+      user-select: none;
+      touch-action: none;
+    ">
+      <div id="joystick-knob" style="
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #5a6cff;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        transition: all 0.1s ease;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      "></div>
+    </div>
+  `;
+  
+  const joystickBase = document.getElementById('joystick-base');
+  const joystickKnob = document.getElementById('joystick-knob');
+  
+  let isDragging = false;
+  let baseRect;
+  
+  function updateJoystickPosition(clientX, clientY) {
+    if (!baseRect) return null;
+    
+    const centerX = baseRect.left + baseRect.width / 2;
+    const centerY = baseRect.top + baseRect.height / 2;
+    
+    const deltaX = clientX - centerX;
+    const deltaY = clientY - centerY;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    const maxDistance = baseRect.width / 2 - 20;
+    
+    let knobX = deltaX;
+    let knobY = deltaY;
+    
+    // Limit knob to base circle
+    if (distance > maxDistance) {
+      knobX = (deltaX / distance) * maxDistance;
+      knobY = (deltaY / distance) * maxDistance;
+    }
+    
+    // Update knob position
+    joystickKnob.style.transform = `translate(${knobX - 20}px, ${knobY - 20}px)`;
+    
+    // Calculate direction if moved far enough
+    if (distance > 15) {
+      const angle = Math.atan2(-deltaY, deltaX) * 180 / Math.PI;
+      const normalizedAngle = angle < 0 ? angle + 360 : angle;
+      
+      let direction = null;
+      if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) direction = 'right';
+      else if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) direction = 'up-right';
+      else if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) direction = 'up';
+      else if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) direction = 'up-left';
+      else if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) direction = 'left';
+      else if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) direction = 'down-left';
+      else if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) direction = 'down';
+      else if (normalizedAngle >= 292.5 && normalizedAngle < 337.5) direction = 'down-right';
+      
+      return direction;
+    }
+    
+    return null;
+  }
+  
+  function startJoystick(clientX, clientY) {
+    isDragging = true;
+    isJoystickActive = true;
+    baseRect = joystickBase.getBoundingClientRect();
+    joystickBase.style.background = 'rgba(90, 108, 255, 0.3)';
+    
+    // Immediately update direction and start interval
+    const direction = updateJoystickPosition(clientX, clientY);
+    joystickDirection = direction;
+    
+    // Start movement interval if not already running
+    if (!movementInterval) {
+      movementInterval = setInterval(updateMovement, 100);
+    }
+  }
+  
+  function moveJoystick(clientX, clientY) {
+    if (!isDragging) return;
+    
+    const direction = updateJoystickPosition(clientX, clientY);
+    joystickDirection = direction;
+  }
+  
+  function endJoystick() {
+    isDragging = false;
+    isJoystickActive = false;
+    joystickDirection = null;
+    joystickBase.style.background = 'rgba(255,255,255,0.2)';
+    joystickKnob.style.transform = 'translate(-20px, -20px)';
+    
+    // Stop interval if no keyboard input either
+    if (pressedKeys.size === 0 && movementInterval) {
+      clearInterval(movementInterval);
+      movementInterval = null;
+    }
+  }
+  
+  // Touch events
+  joystickBase.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    startJoystick(touch.clientX, touch.clientY);
+  }, { passive: false });
+  
+  joystickBase.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    if (isDragging && e.touches[0]) {
+      const touch = e.touches[0];
+      moveJoystick(touch.clientX, touch.clientY);
+    }
+  }, { passive: false });
+  
+  joystickBase.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    endJoystick();
+  }, { passive: false });
+  
+  joystickBase.addEventListener('touchcancel', function(e) {
+    e.preventDefault();
+    endJoystick();
+  }, { passive: false });
+  
+  // Mouse events for desktop testing
+  joystickBase.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    startJoystick(e.clientX, e.clientY);
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (isDragging) {
+      e.preventDefault();
+      moveJoystick(e.clientX, e.clientY);
+    }
+  });
+  
+  document.addEventListener('mouseup', function(e) {
+    if (isDragging) {
+      e.preventDefault();
+      endJoystick();
+    }
+  });
 }
   </script>
 </body>
