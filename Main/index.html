@@ -290,25 +290,13 @@ let joystickDirection = null;
 let isJoystickActive = false;
 
 function updateMovement() {
-  console.log('🔄 updateMovement called:', {
-    joined,
-    isJoystickActive,
-    joystickDirection,
-    pressedKeysSize: pressedKeys.size,
-    socket: socket ? 'connected' : 'disconnected'
-  });
-  
-  if (!joined) {
-    console.log('❌ Not joined, skipping movement');
-    return;
-  }
+  if (!joined) return;
   
   let dir = null;
   
   // Check joystick first (joystick takes priority over keyboard)
   if (isJoystickActive && joystickDirection) {
     dir = joystickDirection;
-    console.log('🎮 Using joystick direction:', dir);
   }
   // If no joystick input, check keyboard
   else if (pressedKeys.size > 0) {
@@ -338,17 +326,10 @@ function updateMovement() {
     else if (vertical === 1 && horizontal === 1) dir = 'up-right';
     else if (vertical === -1 && horizontal === -1) dir = 'down-left';
     else if (vertical === -1 && horizontal === 1) dir = 'down-right';
-    
-    if (dir) {
-      console.log('⌨️ Using keyboard direction:', dir);
-    }
   }
   
   if (dir) {
-    console.log('✅ Sending direction:', dir);
     sendDirection(dir);
-  } else {
-    console.log('❌ No direction to send');
   }
 }
 
@@ -392,8 +373,6 @@ window.addEventListener('keyup', function(e) {
 const joystickZone = document.getElementById('joystick');
 
 if (joystickZone) {
-  console.log('🚀 Creating custom mobile joystick...');
-  
   // Create joystick elements
   joystickZone.innerHTML = `
     <div id="joystick-base" style="
@@ -426,8 +405,8 @@ if (joystickZone) {
   const joystickKnob = document.getElementById('joystick-knob');
   
   let isDragging = false;
-  let startX, startY;
   let baseRect;
+  let lastDirection = null;
   
   function updateJoystickPosition(clientX, clientY) {
     if (!baseRect) return null;
@@ -438,7 +417,7 @@ if (joystickZone) {
     const deltaX = clientX - centerX;
     const deltaY = clientY - centerY;
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    const maxDistance = baseRect.width / 2 - 20; // Keep knob inside base
+    const maxDistance = baseRect.width / 2 - 20;
     
     let knobX = deltaX;
     let knobY = deltaY;
@@ -474,64 +453,70 @@ if (joystickZone) {
   }
   
   function startJoystick(clientX, clientY) {
-    console.log('🎮 Custom joystick started');
     isDragging = true;
     isJoystickActive = true;
     baseRect = joystickBase.getBoundingClientRect();
     joystickBase.style.background = 'rgba(90, 108, 255, 0.3)';
-    startMovementInterval();
     
+    // Immediately update direction and start interval
     const direction = updateJoystickPosition(clientX, clientY);
-    if (direction) {
-      joystickDirection = direction;
-      console.log('🎯 Initial direction:', direction);
-    }
+    joystickDirection = direction;
+    lastDirection = direction;
+    
+    startMovementInterval();
+    console.log('Joystick started, direction:', direction);
   }
   
   function moveJoystick(clientX, clientY) {
     if (!isDragging) return;
     
     const direction = updateJoystickPosition(clientX, clientY);
-    if (direction !== joystickDirection) {
+    if (direction !== lastDirection) {
       joystickDirection = direction;
-      console.log('🎯 Direction changed to:', direction);
+      lastDirection = direction;
+      console.log('Direction:', direction);
     }
   }
   
   function endJoystick() {
-    console.log('🎮 Custom joystick ended');
     isDragging = false;
     isJoystickActive = false;
     joystickDirection = null;
+    lastDirection = null;
     joystickBase.style.background = 'rgba(255,255,255,0.2)';
-    joystickKnob.style.transform = 'translate(-20px, -20px)'; // Reset to center
+    joystickKnob.style.transform = 'translate(-20px, -20px)';
     stopMovementInterval();
+    console.log('Joystick ended');
   }
   
-  // Touch events
+  // Touch events - ensure proper event handling
   joystickBase.addEventListener('touchstart', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     const touch = e.touches[0];
     startJoystick(touch.clientX, touch.clientY);
-  });
+  }, { passive: false });
   
   joystickBase.addEventListener('touchmove', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     if (isDragging && e.touches[0]) {
       const touch = e.touches[0];
       moveJoystick(touch.clientX, touch.clientY);
     }
-  });
+  }, { passive: false });
   
   joystickBase.addEventListener('touchend', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     endJoystick();
-  });
+  }, { passive: false });
   
   joystickBase.addEventListener('touchcancel', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     endJoystick();
-  });
+  }, { passive: false });
   
   // Mouse events for desktop testing
   joystickBase.addEventListener('mousedown', function(e) {
@@ -553,7 +538,7 @@ if (joystickZone) {
     }
   });
   
-  console.log('✅ Custom mobile joystick created and ready');
+  console.log('Custom mobile joystick ready');
 }
   </script>
 </body>
