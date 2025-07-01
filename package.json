@@ -1,0 +1,19 @@
+{
+  "name": "testing-streamgame",
+  "version": "1.0.0",
+  "description": "Maze Race Game Server",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["websocket", "game", "maze"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
