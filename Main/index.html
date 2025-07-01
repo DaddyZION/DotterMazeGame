@@ -1,0 +1,376 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stream Joystick Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="game-header">
+    <h1>Maze Race</h1>
+    <div id="leaderboard" class="leaderboard"></div>
+  </div>
+  <div class="game-main">
+    <div class="side-panel">
+      <div class="panel">
+        <select id="vikingNameSelect"></select>
+        <input id="nameDigits" type="text" maxlength="2" pattern="[0-9]{0,2}" placeholder="00" style="width:36px;text-align:center;font-size:1.1em;margin-left:6px;" title="Optional: 2 digits" />
+        <input type="color" id="color" title="Pick your color" />
+        <button id="enterBtn">Enter</button>
+      </div>
+      <div id="playerList" class="player-list"></div>
+    </div>
+    <div class="maze-panel">
+      <div id="maze" style="position:relative;"></div>
+      <div id="controls" class="controls-panel">
+        <button class="dir-btn" data-dir="up-left">↖<span class="dir-hint">Q</span></button>
+        <button class="dir-btn" data-dir="up">↑<span class="dir-hint">W</span></button>
+        <button class="dir-btn" data-dir="up-right">↗<span class="dir-hint">E</span></button>
+        <button class="dir-btn" data-dir="left">←<span class="dir-hint">A</span></button>
+        <button class="dir-btn" data-dir="center" disabled style="opacity:0">•</button>
+        <button class="dir-btn" data-dir="right">→<span class="dir-hint">D</span></button>
+        <button class="dir-btn" data-dir="down-left">↙<span class="dir-hint">Z</span></button>
+        <button class="dir-btn" data-dir="down">↓<span class="dir-hint">S</span></button>
+        <button class="dir-btn" data-dir="down-right">↘<span class="dir-hint">C</span></button>
+      </div>
+      <div id="joystick" style="margin:32px auto 0 auto;"></div>
+    </div>
+  </div>
+  <div class="footer">
+    Powered by DotterU &middot; Race your friends to the end of the maze!
+  </div>
+  <script>
+let socket, username, color, joined = false;
+
+// Generate a random bright HEX color
+function getRandomBrightHexColor() {
+  const h = Math.floor(Math.random() * 360);
+  const s = 90, l = 60;
+  let rgb = hslToRgb(h, s, l);
+  return rgbToHex(rgb[0], rgb[1], rgb[2]);
+}
+
+// HSL to RGB helper
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  let c = (1 - Math.abs(2 * l - 1)) * s,
+      x = c * (1 - Math.abs((h / 60) % 2 - 1)),
+      m = l - c/2, r=0, g=0, b=0;
+  if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+  else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+  else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+  else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+  else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+  else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+  r = Math.round((r + m) * 255);
+  g = Math.round((g + m) * 255);
+  b = Math.round((b + m) * 255);
+  return [r, g, b];
+}
+
+// RGB to HEX helper
+function rgbToHex(r, g, b) {
+  return "#" + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+// Set initial color
+const colorInput = document.getElementById('color');
+colorInput.value = getRandomBrightHexColor();
+colorInput.style.background = colorInput.value;
+let pickedColor = colorInput.value;
+
+colorInput.addEventListener('input', function() {
+  pickedColor = colorInput.value;
+  colorInput.style.background = pickedColor;
+});
+
+// Viking names list
+const VIKING_NAMES = [
+  'Erik', 'Leif', 'Bjorn', 'Ivar', 'Ragnar', 'Harald', 'Sigurd', 'Ulf', 'Sten', 'Torsten',
+  'Gunnar', 'Sven', 'Einar', 'Hakon', 'Magnus', 'Olaf', 'Trygve', 'Arne', 'Knut', 'Frode',
+  'Halfdan', 'Rolf', 'Steinar', 'Toke', 'Viggo', 'Askell', 'Bjarne', 'Dag', 'Egil', 'Finn',
+  'Geir', 'Hallvard', 'Ingvar', 'Jarl', 'Ketil', 'Loki', 'Morten', 'Njord', 'Odd', 'Peder',
+  'Quen', 'Roar', 'Snorre', 'Tormod', 'Ulrik', 'Vidar', 'Yngve', 'Ake', 'Bersi', 'Torvi'
+];
+const nameSelect = document.getElementById('vikingNameSelect');
+VIKING_NAMES.forEach(name => {
+  const opt = document.createElement('option');
+  opt.value = name;
+  opt.textContent = name;
+  nameSelect.appendChild(opt);
+});
+
+document.getElementById('enterBtn').onclick = function(e) {
+  e.preventDefault();
+  const baseName = document.getElementById('vikingNameSelect').value;
+  const digits = document.getElementById('nameDigits').value.replace(/[^0-9]/g, '').slice(0,2);
+  username = baseName + (digits ? digits : '');
+  if (!baseName) return alert('Please select a name!');
+  color = pickedColor;
+  socket = new WebSocket('wss://medieval-saba-daddyzion-57e9a7c2.koyeb.app/');
+  socket.onopen = function() {
+    socket.send(JSON.stringify({ type: 'join', username, color }));
+    joined = true;
+    document.querySelectorAll('.dir-btn').forEach(btn => { btn.disabled = false; });
+  };
+  document.getElementById('vikingNameSelect').disabled = true;
+  document.getElementById('nameDigits').disabled = true;
+  document.getElementById('color').disabled = true;
+  document.getElementById('enterBtn').disabled = true;
+
+  socket.onmessage = function(event) {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'maze') {
+      renderMaze(msg.maze, msg.cellSize);
+    }
+    if (msg.type === 'state' && msg.users) {
+      renderPlayers(msg.users);
+    }
+    if (msg.type === 'winner') {
+      alert(msg.username + ' reached the end of the maze!');
+    }
+    if (msg.type === 'error') {
+      alert(msg.message);
+      document.getElementById('vikingNameSelect').disabled = false;
+      document.getElementById('nameDigits').disabled = false;
+      document.getElementById('color').disabled = false;
+      document.getElementById('enterBtn').disabled = false;
+      joined = false;
+      socket.close();
+      document.querySelectorAll('.dir-btn').forEach(btn => { btn.disabled = true; });
+    }
+  };
+  document.querySelectorAll('.dir-btn').forEach(btn => { btn.disabled = true; });
+};
+
+// Mobile: allow pressing Enter on keyboard to submit
+document.getElementById('nameDigits').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('enterBtn').click();
+  }
+});
+
+// Maze rendering function
+function renderMaze(maze, cellSize) {
+  const mazeDiv = document.getElementById('maze');
+  mazeDiv.innerHTML = '';
+  mazeDiv.style.position = 'relative';
+  mazeDiv.style.width = (maze[0].length * cellSize) + 'px';
+  mazeDiv.style.height = (maze.length * cellSize) + 'px';
+  // Render maze grid
+  for (let y = 0; y < maze.length; y++) {
+    for (let x = 0; x < maze[0].length; x++) {
+      const cell = document.createElement('div');
+      cell.style.position = 'absolute';
+      cell.style.left = (x * cellSize) + 'px';
+      cell.style.top = (y * cellSize) + 'px';
+      cell.style.width = cellSize + 'px';
+      cell.style.height = cellSize + 'px';
+      cell.style.boxSizing = 'border-box';
+      cell.style.zIndex = 1; // Maze cells below
+      if (maze[y][x] === 1) {
+        cell.style.background = '#222';
+      } else {
+        cell.style.background = '#eee2';
+      }
+      if (x === 1 && y === 1) cell.style.background = '#0f08'; // Start
+      if (x === maze[0].length-2 && y === maze.length-2) cell.style.background = '#0f08'; // End
+      mazeDiv.appendChild(cell);
+    }
+  }
+  // Ensure player sprites are on top (z-index > 1)
+  Object.values(playerDivs).forEach(div => {
+    div.style.zIndex = 10;
+    mazeDiv.appendChild(div);
+  });
+}
+
+// Add button controls
+function sendDirection(dir) {
+  if (!joined || !socket || socket.readyState !== 1) return;
+  let angle = null;
+  switch(dir) {
+    case 'up': angle = 90; break;
+    case 'down': angle = 270; break;
+    case 'left': angle = 180; break;
+    case 'right': angle = 0; break;
+    case 'up-left': angle = 135; break;
+    case 'up-right': angle = 45; break;
+    case 'down-left': angle = 225; break;
+    case 'down-right': angle = 315; break;
+  }
+  if (angle !== null) {
+    socket.send(JSON.stringify({
+      type: 'move',
+      username,
+      direction: angle,
+      force: 1
+    }));
+  }
+}
+
+document.querySelectorAll('.dir-btn').forEach(btn => {
+  btn.onclick = function() {
+    sendDirection(btn.getAttribute('data-dir'));
+  };
+});
+
+const playerDivs = {};
+function renderPlayers(users) {
+  const mazeDiv = document.getElementById('maze');
+  const seen = new Set();
+  users.forEach(u => {
+    let div = playerDivs[u.username];
+    if (!div) {
+      div = document.createElement('div');
+      div.className = 'maze-player';
+      div.style.position = 'absolute';
+      div.style.width = '14px';
+      div.style.height = '14px';
+      div.style.backgroundSize = 'contain';
+      div.style.backgroundRepeat = 'no-repeat';
+      div.style.backgroundPosition = 'center';
+      div.style.zIndex = 10; // Ensure sprite is on top
+      div.title = u.username;
+      mazeDiv.appendChild(div);
+      playerDivs[u.username] = div;
+    }
+    div.style.backgroundImage = `url('${u.sprite}')`;
+    div.style.border = `2px solid ${u.color}`;
+    div.style.zIndex = 10;
+    if (typeof u.collisionX === 'number' && typeof u.collisionY === 'number') {
+      div.style.left = (u.collisionX - 7) + 'px';
+      div.style.top = (u.collisionY - 7) + 'px';
+    } else {
+      div.style.left = (u.x) + 'px';
+      div.style.top = (u.y) + 'px';
+    }
+    let label = div.querySelector('.player-label');
+    if (!label) {
+      label = document.createElement('div');
+      label.className = 'player-label';
+      label.style.position = 'absolute';
+      label.style.top = '-1.5em';
+      label.style.left = '50%';
+      label.style.transform = 'translateX(-50%)';
+      label.style.color = u.color;
+      label.style.fontWeight = 'bold';
+      label.style.textShadow = '0 1px 4px #000b';
+      div.appendChild(label);
+    }
+    label.textContent = u.username;
+    seen.add(u.username);
+    // Always append sprite after maze cells to keep on top
+    mazeDiv.appendChild(div);
+  });
+  Object.keys(playerDivs).forEach(username => {
+    if (!seen.has(username)) {
+      playerDivs[username].remove();
+      delete playerDivs[username];
+    }
+  });
+}
+
+// Multi-key keyboard controls
+const pressedKeys = new Set();
+let movementInterval = null;
+
+function updateMovement() {
+  if (!joined || pressedKeys.size === 0) return;
+  
+  let vertical = 0;
+  let horizontal = 0;
+  
+  // Check vertical movement
+  if (pressedKeys.has('w') || pressedKeys.has('ArrowUp')) vertical = 1;
+  if (pressedKeys.has('s') || pressedKeys.has('ArrowDown')) vertical = -1;
+  
+  // Check horizontal movement
+  if (pressedKeys.has('a') || pressedKeys.has('ArrowLeft')) horizontal = -1;
+  if (pressedKeys.has('d') || pressedKeys.has('ArrowRight')) horizontal = 1;
+  
+  // Check diagonal keys
+  if (pressedKeys.has('q')) { vertical = 1; horizontal = -1; }
+  if (pressedKeys.has('e')) { vertical = 1; horizontal = 1; }
+  if (pressedKeys.has('z')) { vertical = -1; horizontal = -1; }
+  if (pressedKeys.has('c')) { vertical = -1; horizontal = 1; }
+  
+  // Determine direction
+  let dir = null;
+  if (vertical === 1 && horizontal === 0) dir = 'up';
+  else if (vertical === -1 && horizontal === 0) dir = 'down';
+  else if (vertical === 0 && horizontal === -1) dir = 'left';
+  else if (vertical === 0 && horizontal === 1) dir = 'right';
+  else if (vertical === 1 && horizontal === -1) dir = 'up-left';
+  else if (vertical === 1 && horizontal === 1) dir = 'up-right';
+  else if (vertical === -1 && horizontal === -1) dir = 'down-left';
+  else if (vertical === -1 && horizontal === 1) dir = 'down-right';
+  
+  if (dir) {
+    sendDirection(dir);
+  }
+}
+
+window.addEventListener('keydown', function(e) {
+  if (!joined) return;
+  const key = e.key.toLowerCase();
+  const validKeys = ['w', 's', 'a', 'd', 'q', 'e', 'z', 'c', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
+  
+  if (validKeys.includes(key)) {
+    pressedKeys.add(key);
+    e.preventDefault();
+    
+    // Start movement interval if not already running
+    if (!movementInterval) {
+      movementInterval = setInterval(updateMovement, 100); // Update every 100ms
+    }
+  }
+});
+
+window.addEventListener('keyup', function(e) {
+  if (!joined) return;
+  const key = e.key.toLowerCase();
+  pressedKeys.delete(key);
+  
+  // Stop movement interval if no keys are pressed
+  if (pressedKeys.size === 0 && movementInterval) {
+    clearInterval(movementInterval);
+    movementInterval = null;
+  }
+});
+
+// Joystick for mobile
+if (window.innerWidth < 700 || /Mobi|Android/i.test(navigator.userAgent)) {
+  const joystickZone = document.getElementById('joystick');
+  if (joystickZone) {
+    const joystick = nipplejs.create({
+      zone: joystickZone,
+      mode: 'static',
+      position: { left: '50%', top: '50%' },
+      color: '#5a6cff',
+      size: 120
+    });
+    joystick.on('dir', function(evt, data) {
+      if (!data || !data.direction) return;
+      let dir = data.direction.angle;
+      // Map nipplejs direction to game direction
+      let gameDir = null;
+      if (dir === 'up') gameDir = 'up';
+      else if (dir === 'down') gameDir = 'down';
+      else if (dir === 'left') gameDir = 'left';
+      else if (dir === 'right') gameDir = 'right';
+      else if (dir === 'up left') gameDir = 'up-left';
+      else if (dir === 'up right') gameDir = 'up-right';
+      else if (dir === 'down left') gameDir = 'down-left';
+      else if (dir === 'down right') gameDir = 'down-right';
+      if (gameDir) sendDirection(gameDir);
+    });
+  }
+}
+  </script>
+</body>
+</html>
