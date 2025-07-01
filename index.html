@@ -124,7 +124,7 @@ document.getElementById('enterBtn').onclick = function(e) {
   socket.onmessage = function(event) {
     const msg = JSON.parse(event.data);
     if (msg.type === 'maze') {
-      renderMaze(msg.maze, msg.cellSize);
+      renderMaze(msg.maze, msg.cellSize, msg.startPos, msg.endPos);
     }
     if (msg.type === 'state' && msg.users) {
       renderPlayers(msg.users);
@@ -155,7 +155,11 @@ document.getElementById('nameDigits').addEventListener('keydown', function(e) {
 });
 
 // Maze rendering function
-function renderMaze(maze, cellSize) {
+let startPos = [1, 1], endPos = [];
+function renderMaze(maze, cellSize, start, end) {
+  if (start) startPos = start;
+  if (end) endPos = end;
+  
   const mazeDiv = document.getElementById('maze');
   mazeDiv.innerHTML = '';
   mazeDiv.style.position = 'relative';
@@ -177,8 +181,9 @@ function renderMaze(maze, cellSize) {
       } else {
         cell.style.background = '#eee2';
       }
-      if (x === 1 && y === 1) cell.style.background = '#0f08'; // Start
-      if (x === maze[0].length-2 && y === maze.length-2) cell.style.background = '#0f08'; // End
+      // Dynamic start and end positions with proper colors
+      if (x === startPos[0] && y === startPos[1]) cell.style.background = '#0a0'; // Start (green)
+      if (x === endPos[0] && y === endPos[1]) cell.style.background = '#a00'; // End (red)
       mazeDiv.appendChild(cell);
     }
   }
