@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Maze Race Scoreboard</title>
+  <style>
+    body {
+      margin: 0;
+      background: rgba(255,255,255,0.65); /* lighter transparent background */
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+    #scoreboard {
+      position: fixed;
+      top: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #18183aee;
+      color: #ffd700;
+      font-size: 2rem;
+      padding: 18px 48px 18px 48px;
+      border-radius: 22px;
+      z-index: 100000;
+      text-align: center;
+      box-shadow: 0 2px 24px #000a;
+      letter-spacing: 0.04em;
+      min-width: 340px;
+      min-height: 2.5em;
+      display: block;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 auto;
+      background: none;
+    }
+    th, td {
+      padding: 8px 18px;
+      text-align: left;
+      font-size: 1.3em;
+      border-bottom: 1px solid #ffd70044;
+    }
+    th {
+      color: #fff;
+      font-size: 1.1em;
+      font-weight: 600;
+      background: none;
+      border-bottom: 2px solid #ffd70099;
+    }
+    tr:first-child td {
+      font-weight: bold;
+      color: #fff;
+      background: #ffd70022;
+    }
+    .score {
+      text-align: right;
+      font-weight: bold;
+      color: #ffd700;
+      font-size: 1.3em;
+    }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 10px;
+      background: #fff2;
+      object-fit: contain;
+      border: 2px solid #ffd70099;
+    }
+    .username {
+      color: #fff;
+      font-weight: 500;
+      font-size: 1.1em;
+    }
+  </style>
+</head>
+<body>
+  <div id="scoreboard">No wins yet</div>
+  <script>
+const scores = {};
+const avatars = {};
+const socket = new WebSocket('ws://localhost:8080');
+function updateScoreboard() {
+  const board = document.getElementById('scoreboard');
+  const entries = Object.entries(scores)
+    .sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) {
+    board.innerHTML = 'No wins yet';
+    return;
+  }
+  let html = `<table><tr><th></th><th>Player</th><th class='score'>Wins</th></tr>`;
+  entries.forEach(([user, score], i) => {
+    const avatar = avatars[user] ? `<img class='avatar' src='${avatars[user]}' alt='avatar'>` : '';
+    html += `<tr><td style='text-align:center;'>${i+1}</td><td class='username'>${avatar}${user}</td><td class='score'>${score}</td></tr>`;
+  });
+  html += '</table>';
+  board.innerHTML = html;
+}
+socket.onmessage = function(event) {
+  const msg = JSON.parse(event.data);
+  if (msg.type === 'winner') {
+    scores[msg.username] = (scores[msg.username] || 0) + 1;
+    if (msg.sprite) avatars[msg.username] = msg.sprite;
+    updateScoreboard();
+  }
+  // Optionally, update avatars from state messages
+  if (msg.type === 'state' && Array.isArray(msg.users)) {
+    msg.users.forEach(u => {
+      if (u.sprite) avatars[u.username] = u.sprite;
+    });
+    updateScoreboard();
+  }
+};
+  </script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: linear-gradient(135deg, #23234a 0%, #3a3a6a 100%);
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  box-sizing: border-box;
+}
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 0 0 0;
+}
+.leaderboard {
+  background: #18183aee;
+  border-radius: 12px;
+  padding: 12px 24px;
+  color: #ffd700;
+  font-size: 1.1rem;
+  min-width: 180px;
+  min-height: 32px;
+  box-shadow: 0 2px 12px #0003;
+  text-align: left;
+}
+.game-main {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  gap: 32px;
+}
+.side-panel {
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.player-list {
+  background: #23234aee;
+  border-radius: 12px;
+  padding: 12px 18px;
+  color: #fff;
+  font-size: 1rem;
+  min-height: 40px;
+  box-shadow: 0 2px 12px #0003;
+  margin-top: 12px;
+}
+.maze-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+#maze {
+  position: relative;
+  margin: 0 auto 24px auto;
+  z-index: 1;
+  background: #18183aee;
+  border-radius: 16px;
+  box-shadow: 0 4px 32px #000a;
+  padding: 12px;
+}
+#maze div {
+  box-shadow: 0 0 2px #0008;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+.maze-player {
+  transition: left 0.1s, top 0.1s, transform 0.1s;
+  pointer-events: none;
+}
+#spritePicker {
+  width: 100%;
+  margin: 8px 0;
+  border-radius: 8px;
+  padding: 6px;
+  font-size: 1rem;
+  background: #23234a;
+  color: #fff;
+  border: 1px solid #444;
+}
+input, button, #color {
+  font-size: 1.1rem;
+  border-radius: 8px;
+  border: none;
+  padding: 8px 14px;
+  margin: 0 4px;
+  outline: none;
+  max-width: 90vw;
+}
+
+input[type="color"] {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid #fff3;
+  background: none;
+  cursor: pointer;
+}
+
+button {
+  background: #5a6cff;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:disabled {
+  background: #888;
+  cursor: not-allowed;
+}
+
+#joystick {
+  margin-top: 40px;
+  display: block;
+  width: 180px;
+  height: 180px;
+  background: transparent; /* Remove background */
+  border-radius: 50%;
+  box-shadow: 0 2px 24px #000a;
+  align-self: center;
+  touch-action: none;
+  max-width: 90vw;
+  max-height: 40vw;
+  min-width: 120px;
+  min-height: 120px;
+  border: 3px solid #fff;
+  position: relative;
+  z-index: 9999 !important; /* Force to front */
+}
+
+#joystick .nipple, #joystick .nipple * {
+  z-index: 10000 !important;
+  position: absolute !important;
+  pointer-events: auto !important;
+}
+
+.footer {
+  margin-top: auto;
+  padding: 18px;
+  color: #aaa;
+  font-size: 0.95rem;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.character {
+  position: absolute;
+  width: 112px;
+  height: 112px;
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.1s, top 0.1s, transform 0.1s;
+}
+
+#maze {
+  position: relative;
+  margin: 0 auto 24px auto;
+  z-index: 1;
+}
+#maze div {
+  box-shadow: 0 0 2px #0008;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+#maze .start, #maze .end {
+  background: #0f08 !important;
+}
+#joystick {
+  z-index: 10;
+}
+
+.controls-panel {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(3, 56px);
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  background: rgba(24, 24, 58, 0.85);
+  border-radius: 18px;
+  box-shadow: 0 4px 24px #0005;
+  padding: 18px 18px 10px 18px;
+  margin: 24px auto 0 auto;
+}
+.controls-panel button.dir-btn {
+  width: 56px;
+  height: 56px;
+  font-size: 2.1rem;
+  border-radius: 50%;
+  border: none;
+  background: #23234a;
+  color: #fff;
+  box-shadow: 0 2px 8px #0003;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.controls-panel button.dir-btn:active,
+.controls-panel button.dir-btn:focus {
+  background: #5a6cff;
+  transform: scale(1.08);
+}
+.controls-panel button[disabled] {
+  background: transparent;
+  box-shadow: none;
+  cursor: default;
+}
+.dir-hint {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.8rem;
+  color: #aaa;
+  opacity: 0.7;
+  pointer-events: none;
+}
+@media (max-width: 600px) {
+  h1 { font-size: 1.3rem; margin-top: 18px; }
+  .panel { padding: 18px 8px 14px 8px; margin-top: 12px; }
+  #joystick { width: 120px; height: 120px; min-width: 80px; min-height: 80px; }
+  .controls-panel {
+    grid-template-columns: repeat(3, 44px);
+    grid-template-rows: repeat(3, 44px);
+    padding: 10px 6px 6px 6px;
+    gap: 5px;
+  }
+  .controls-panel button.dir-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.3rem;
+  }
+}
+@media (max-width: 900px) {
+  .game-main { flex-direction: column; align-items: center; }
+  .side-panel { flex-direction: row; min-width: 0; gap: 12px; }
+}
