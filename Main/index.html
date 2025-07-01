@@ -350,7 +350,7 @@ window.addEventListener('keyup', function(e) {
   }
 });
 
-// Joystick for mobile with continuous movement - Simplified and more robust
+// Joystick for mobile with continuous movement - Fixed
 const joystickZone = document.getElementById('joystick');
 if (joystickZone) {
   let currentJoystickDirection = null;
@@ -360,20 +360,48 @@ if (joystickZone) {
   console.log('Initializing joystick...');
   
   function updateJoystickMovement() {
+    console.log('updateJoystickMovement called:', {
+      joined,
+      currentJoystickDirection,
+      isJoystickActive,
+      socketState: socket ? socket.readyState : 'no socket'
+    });
+    
     if (!joined) {
-      console.log('Not joined, skipping joystick movement');
+      console.log('❌ Not joined, skipping joystick movement');
       return;
     }
     if (!currentJoystickDirection) {
-      console.log('No current direction, skipping joystick movement');
+      console.log('❌ No current direction, skipping joystick movement');
       return;
     }
     if (!isJoystickActive) {
-      console.log('Joystick not active, skipping movement');
+      console.log('❌ Joystick not active, skipping movement');
       return;
     }
-    console.log('✓ Sending joystick direction:', currentJoystickDirection);
+    console.log('✅ Sending joystick direction:', currentJoystickDirection);
     sendDirection(currentJoystickDirection);
+  }
+  
+  function startContinuousMovement() {
+    if (joystickMovementInterval) {
+      console.log('Clearing existing interval');
+      clearInterval(joystickMovementInterval);
+    }
+    console.log('Starting new movement interval');
+    joystickMovementInterval = setInterval(function() {
+      console.log('Interval tick - calling updateJoystickMovement');
+      updateJoystickMovement();
+    }, 100); // Faster interval for more responsive movement
+    console.log('Movement interval started with ID:', joystickMovementInterval);
+  }
+  
+  function stopContinuousMovement() {
+    if (joystickMovementInterval) {
+      console.log('Stopping movement interval:', joystickMovementInterval);
+      clearInterval(joystickMovementInterval);
+      joystickMovementInterval = null;
+    }
   }
   
   const joystick = nipplejs.create({
@@ -390,14 +418,9 @@ if (joystickZone) {
   console.log('Joystick created:', joystick);
   
   joystick.on('start', function(evt, data) {
-    console.log('🎮 Joystick started - isJoystickActive = true');
+    console.log('🎮 Joystick started');
     isJoystickActive = true;
-    // Start continuous movement immediately
-    if (joystickMovementInterval) {
-      clearInterval(joystickMovementInterval);
-    }
-    joystickMovementInterval = setInterval(updateJoystickMovement, 120);
-    console.log('Interval started with ID:', joystickMovementInterval);
+    startContinuousMovement();
   });
   
   joystick.on('move', function(evt, data) {
@@ -409,7 +432,7 @@ if (joystickZone) {
     console.log('📱 Joystick move - distance:', data.distance, 'angle:', data.angle?.degree);
     
     // Lower distance threshold for better responsiveness
-    if (data.distance < 15) {
+    if (data.distance < 10) {
       console.log('Distance too low, clearing direction');
       currentJoystickDirection = null;
       return;
@@ -419,13 +442,7 @@ if (joystickZone) {
     let angle = data.angle.degree;
     let gameDir = null;
     
-    // Convert angle to direction with wider ranges for easier control
-    if (angle >= 315 || angle < 45) gameDir = 'right';
-    else if (angle >= 45 && angle < 135) gameDir = 'up';
-    else if (angle >= 135 && angle < 225) gameDir = 'left';
-    else if (angle >= 225 && angle < 315) gameDir = 'down';
-    
-    // Add diagonal support with tighter ranges
+    // Convert angle to direction with 8-way movement
     if (angle >= 337.5 || angle < 22.5) gameDir = 'right';
     else if (angle >= 22.5 && angle < 67.5) gameDir = 'up-right';
     else if (angle >= 67.5 && angle < 112.5) gameDir = 'up';
@@ -438,6 +455,8 @@ if (joystickZone) {
     if (gameDir !== currentJoystickDirection) {
       currentJoystickDirection = gameDir;
       console.log('🎯 Direction changed to:', gameDir, 'at angle:', angle);
+    } else {
+      console.log('🔄 Direction maintained:', gameDir, 'at angle:', angle);
     }
   });
   
@@ -445,11 +464,12 @@ if (joystickZone) {
     console.log('🎮 Joystick ended - stopping movement');
     isJoystickActive = false;
     currentJoystickDirection = null;
-    if (joystickMovementInterval) {
-      console.log('Clearing interval:', joystickMovementInterval);
-      clearInterval(joystickMovementInterval);
-      joystickMovementInterval = null;
-    }
+    stopContinuousMovement();
+  });
+  
+  // Additional event for better tracking
+  joystick.on('dir', function(evt, data) {
+    console.log('📐 Direction event:', data);
   });
   
   // Error handling
@@ -458,6 +478,16 @@ if (joystickZone) {
   });
   
   console.log('Joystick event listeners attached');
+  
+  // Test function - you can call this from console to test
+  window.testJoystick = function() {
+    console.log('Testing joystick state:', {
+      isJoystickActive,
+      currentJoystickDirection,
+      intervalId: joystickMovementInterval,
+      joined
+    });
+  };
 }
   </script>
 </body>
