@@ -43,12 +43,10 @@
 <body>
   <div id="overlay"></div>
   <div id="maze"></div>
-  <div id="scoreboard" style="position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#18183aee;color:#ffd700;font-size:2rem;padding:10px 36px;border-radius:18px;z-index:100000;text-align:center;box-shadow:0 2px 24px #000a;letter-spacing:0.04em;min-width:320px;display:none;"></div>
   <script>
 const socket = new WebSocket('wss://medieval-saba-daddyzion-57e9a7c2.koyeb.app/');
 const overlay = document.getElementById('overlay');
 const characters = {}; // username: { div, x, y, tx, ty, color }
-const scores = {};
 
 // List of sprite filenames (add more as you add them to the sprites folder)
 const SPRITES = [
@@ -133,16 +131,6 @@ function renderMaze() {
   }
 }
 
-function updateScoreboard() {
-  const board = document.getElementById('scoreboard');
-  const entries = Object.entries(scores)
-    .sort((a, b) => b[1] - a[1])
-    .map(([user, score]) => `<span style='color:#ffd700;'>${user}</span>: <b>${score}</b>`)
-    .join(' &nbsp; | &nbsp; ');
-  board.innerHTML = entries || 'No wins yet';
-  board.style.display = 'block';
-}
-
 socket.onmessage = function(event) {
   const msg = JSON.parse(event.data);
   if (msg.type === 'maze') {
@@ -151,8 +139,7 @@ socket.onmessage = function(event) {
     renderMaze();
   }
   if (msg.type === 'winner') {
-    scores[msg.username] = (scores[msg.username] || 0) + 1;
-    updateScoreboard();
+    // Winner handling removed - no scoreboard
   }
   if (msg.type === 'state') {
     Object.values(characters).forEach(c => c.updated = false);
@@ -214,7 +201,7 @@ socket.onmessage = function(event) {
         delete characters[username];
       }
     }
-    updateScoreboard(); // Also update scoreboard on state
+    // Remove scoreboard update call
   }
 };
 
