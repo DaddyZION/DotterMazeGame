@@ -42,11 +42,11 @@ function getIP(ws) {
 // Generate random maze parameters
 function getRandomMazeParams() {
   const difficulties = [
-    { size: [5, 3], extraPaths: 0.02, deadEnds: 0.01, falsePaths: 0.01, name: "Tiny" },
-    { size: [9, 7], extraPaths: 0.04, deadEnds: 0.02, falsePaths: 0.01, name: "Small" },
-    { size: [13, 9], extraPaths: 0.06, deadEnds: 0.04, falsePaths: 0.02, name: "Medium" },
-    { size: [17, 13], extraPaths: 0.10, deadEnds: 0.08, falsePaths: 0.05, name: "Large" },
-    { size: [21, 15], extraPaths: 0.13, deadEnds: 0.10, falsePaths: 0.07, name: "Extra Large" }
+    { size: [5, 3], extraPaths: 0.01, deadEnds: 0.01, falsePaths: 0, name: "Tiny" },
+    { size: [9, 7], extraPaths: 0.02, deadEnds: 0.01, falsePaths: 0, name: "Small" },
+    { size: [13, 9], extraPaths: 0.03, deadEnds: 0.02, falsePaths: 0, name: "Medium" },
+    { size: [17, 13], extraPaths: 0.04, deadEnds: 0.03, falsePaths: 0, name: "Large" },
+    { size: [21, 15], extraPaths: 0.05, deadEnds: 0.04, falsePaths: 0, name: "Extra Large" }
   ];
   
   return difficulties[Math.floor(Math.random() * difficulties.length)];
@@ -59,6 +59,17 @@ function generateMaze(params = null) {
   const [width, height] = params.size;
   const maze = Array.from({ length: height }, () => Array(width).fill(1)); // 1=wall, 0=path
   function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
+  
+  // Random corner positions
+  const corners = [
+    { start: [1, 1], end: [width-2, height-2] }, // top-left to bottom-right
+    { start: [width-2, 1], end: [1, height-2] }, // top-right to bottom-left
+    { start: [1, height-2], end: [width-2, 1] }, // bottom-left to top-right
+    { start: [width-2, height-2], end: [1, 1] }  // bottom-right to top-left
+  ];
+  const selectedCorners = corners[Math.floor(Math.random() * corners.length)];
+  const [startX, startY] = selectedCorners.start;
+  const [endX, endY] = selectedCorners.end;
   
   // Initial DFS carving
   function carve(x, y) {
@@ -74,9 +85,13 @@ function generateMaze(params = null) {
     }
   }
   
-  carve(1,1);
-  maze[1][1] = 0; // Start
-  maze[height-2][width-2] = 0; // End
+  carve(startX, startY);
+  maze[startY][startX] = 0; // Start
+  maze[endY][endX] = 0; // End
+  
+  // Store start/end positions for later use
+  params.startPos = [startX, startY];
+  params.endPos = [endX, endY];
   
   // Add additional complexity based on difficulty
   const extraPaths = Math.floor((width * height) * params.extraPaths);
@@ -185,7 +200,9 @@ function broadcastMaze() {
         maze, 
         cellSize: MAZE_CELL_SIZE,
         difficulty: currentDifficulty.name,
-        size: `${currentDifficulty.size[0]}x${currentDifficulty.size[1]}`
+        size: `${currentDifficulty.size[0]}x${currentDifficulty.size[1]}`,
+        startPos: currentDifficulty.startPos,
+        endPos: currentDifficulty.endPos
       }));
     }
   });
@@ -251,9 +268,10 @@ wss.on('connection', ws => {
       const sprite = availableSprites.splice(Math.floor(Math.random() * availableSprites.length), 1)[0];
       assignedSprites[data.username] = sprite;
 
+      const [startX, startY] = currentDifficulty.startPos;
       users[data.username] = {
-        x: MAZE_CELL_SIZE + 8, // Spawn at maze start
-        y: MAZE_CELL_SIZE + 8,
+        x: startX * MAZE_CELL_SIZE + 8, // Spawn at dynamic maze start
+        y: startY * MAZE_CELL_SIZE + 8,
         color: data.color,
         ws,
         ip,
@@ -307,10 +325,11 @@ wss.on('connection', ws => {
         users[currentUser].x = nextX;
         users[currentUser].y = nextY;
       }
-      // Win check (use collision point)
+      // Win check (use collision point and dynamic end position)
       const winCellX = Math.floor(centerX / MAZE_CELL_SIZE);
       const winCellY = Math.floor(centerY / MAZE_CELL_SIZE);
-      if (winCellX === maze[0].length-2 && winCellY === maze.length-2) {
+      const [endX, endY] = currentDifficulty.endPos;
+      if (winCellX === endX && winCellY === endY) {
         wss.clients.forEach(client => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({ 
@@ -328,7 +347,11 @@ wss.on('connection', ws => {
         currentDifficulty = mazeData.params;
         console.log(`New ${currentDifficulty.name} maze generated (${currentDifficulty.size[0]}x${currentDifficulty.size[1]})`);
         broadcastMaze();
-        Object.values(users).forEach(u => { u.x = MAZE_CELL_SIZE + 8; u.y = MAZE_CELL_SIZE + 8; });
+        const [startX, startY] = currentDifficulty.startPos;
+        Object.values(users).forEach(u => { 
+          u.x = startX * MAZE_CELL_SIZE + 8; 
+          u.y = startY * MAZE_CELL_SIZE + 8; 
+        });
       }
     }
   });
