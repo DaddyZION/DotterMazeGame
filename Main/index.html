@@ -286,39 +286,64 @@ function renderPlayers(users) {
 const pressedKeys = new Set();
 let movementInterval = null;
 
+// Joystick state - integrated with keyboard movement system
+let joystickDirection = null;
+let isJoystickActive = false;
+
 function updateMovement() {
-  if (!joined || pressedKeys.size === 0) return;
+  if (!joined) return;
   
-  let vertical = 0;
-  let horizontal = 0;
-  
-  // Check vertical movement
-  if (pressedKeys.has('w') || pressedKeys.has('ArrowUp')) vertical = 1;
-  if (pressedKeys.has('s') || pressedKeys.has('ArrowDown')) vertical = -1;
-  
-  // Check horizontal movement
-  if (pressedKeys.has('a') || pressedKeys.has('ArrowLeft')) horizontal = -1;
-  if (pressedKeys.has('d') || pressedKeys.has('ArrowRight')) horizontal = 1;
-  
-  // Check diagonal keys
-  if (pressedKeys.has('q')) { vertical = 1; horizontal = -1; }
-  if (pressedKeys.has('e')) { vertical = 1; horizontal = 1; }
-  if (pressedKeys.has('z')) { vertical = -1; horizontal = -1; }
-  if (pressedKeys.has('c')) { vertical = -1; horizontal = 1; }
-  
-  // Determine direction
   let dir = null;
-  if (vertical === 1 && horizontal === 0) dir = 'up';
-  else if (vertical === -1 && horizontal === 0) dir = 'down';
-  else if (vertical === 0 && horizontal === -1) dir = 'left';
-  else if (vertical === 0 && horizontal === 1) dir = 'right';
-  else if (vertical === 1 && horizontal === -1) dir = 'up-left';
-  else if (vertical === 1 && horizontal === 1) dir = 'up-right';
-  else if (vertical === -1 && horizontal === -1) dir = 'down-left';
-  else if (vertical === -1 && horizontal === 1) dir = 'down-right';
+  
+  // Check joystick first (joystick takes priority over keyboard)
+  if (isJoystickActive && joystickDirection) {
+    dir = joystickDirection;
+  }
+  // If no joystick input, check keyboard
+  else if (pressedKeys.size > 0) {
+    let vertical = 0;
+    let horizontal = 0;
+    
+    // Check vertical movement
+    if (pressedKeys.has('w') || pressedKeys.has('ArrowUp')) vertical = 1;
+    if (pressedKeys.has('s') || pressedKeys.has('ArrowDown')) vertical = -1;
+    
+    // Check horizontal movement
+    if (pressedKeys.has('a') || pressedKeys.has('ArrowLeft')) horizontal = -1;
+    if (pressedKeys.has('d') || pressedKeys.has('ArrowRight')) horizontal = 1;
+    
+    // Check diagonal keys
+    if (pressedKeys.has('q')) { vertical = 1; horizontal = -1; }
+    if (pressedKeys.has('e')) { vertical = 1; horizontal = 1; }
+    if (pressedKeys.has('z')) { vertical = -1; horizontal = -1; }
+    if (pressedKeys.has('c')) { vertical = -1; horizontal = 1; }
+    
+    // Determine direction
+    if (vertical === 1 && horizontal === 0) dir = 'up';
+    else if (vertical === -1 && horizontal === 0) dir = 'down';
+    else if (vertical === 0 && horizontal === -1) dir = 'left';
+    else if (vertical === 0 && horizontal === 1) dir = 'right';
+    else if (vertical === 1 && horizontal === -1) dir = 'up-left';
+    else if (vertical === 1 && horizontal === 1) dir = 'up-right';
+    else if (vertical === -1 && horizontal === -1) dir = 'down-left';
+    else if (vertical === -1 && horizontal === 1) dir = 'down-right';
+  }
   
   if (dir) {
     sendDirection(dir);
+  }
+}
+
+function startMovementInterval() {
+  if (!movementInterval) {
+    movementInterval = setInterval(updateMovement, 100); // Update every 100ms
+  }
+}
+
+function stopMovementInterval() {
+  if (pressedKeys.size === 0 && !isJoystickActive && movementInterval) {
+    clearInterval(movementInterval);
+    movementInterval = null;
   }
 }
 
@@ -332,9 +357,7 @@ window.addEventListener('keydown', function(e) {
     e.preventDefault();
     
     // Start movement interval if not already running
-    if (!movementInterval) {
-      movementInterval = setInterval(updateMovement, 100); // Update every 100ms
-    }
+    startMovementInterval();
   }
 });
 
@@ -343,66 +366,14 @@ window.addEventListener('keyup', function(e) {
   const key = e.key.toLowerCase();
   pressedKeys.delete(key);
   
-  // Stop movement interval if no keys are pressed
-  if (pressedKeys.size === 0 && movementInterval) {
-    clearInterval(movementInterval);
-    movementInterval = null;
-  }
+  // Stop movement interval if no keys are pressed and joystick is not active
+  stopMovementInterval();
 });
 
-// Joystick for mobile with continuous movement - Fixed
+// Joystick for mobile - integrated with shared movement system
 const joystickZone = document.getElementById('joystick');
 if (joystickZone) {
-  let currentJoystickDirection = null;
-  let joystickMovementInterval = null;
-  let isJoystickActive = false;
-  
   console.log('Initializing joystick...');
-  
-  function updateJoystickMovement() {
-    console.log('updateJoystickMovement called:', {
-      joined,
-      currentJoystickDirection,
-      isJoystickActive,
-      socketState: socket ? socket.readyState : 'no socket'
-    });
-    
-    if (!joined) {
-      console.log('❌ Not joined, skipping joystick movement');
-      return;
-    }
-    if (!currentJoystickDirection) {
-      console.log('❌ No current direction, skipping joystick movement');
-      return;
-    }
-    if (!isJoystickActive) {
-      console.log('❌ Joystick not active, skipping movement');
-      return;
-    }
-    console.log('✅ Sending joystick direction:', currentJoystickDirection);
-    sendDirection(currentJoystickDirection);
-  }
-  
-  function startContinuousMovement() {
-    if (joystickMovementInterval) {
-      console.log('Clearing existing interval');
-      clearInterval(joystickMovementInterval);
-    }
-    console.log('Starting new movement interval');
-    joystickMovementInterval = setInterval(function() {
-      console.log('Interval tick - calling updateJoystickMovement');
-      updateJoystickMovement();
-    }, 100); // Faster interval for more responsive movement
-    console.log('Movement interval started with ID:', joystickMovementInterval);
-  }
-  
-  function stopContinuousMovement() {
-    if (joystickMovementInterval) {
-      console.log('Stopping movement interval:', joystickMovementInterval);
-      clearInterval(joystickMovementInterval);
-      joystickMovementInterval = null;
-    }
-  }
   
   const joystick = nipplejs.create({
     zone: joystickZone,
@@ -415,34 +386,22 @@ if (joystickZone) {
     restOpacity: 0.6
   });
   
-  console.log('Joystick created:', joystick);
-  
   joystick.on('start', function(evt, data) {
     console.log('🎮 Joystick started');
     isJoystickActive = true;
-    startContinuousMovement();
+    startMovementInterval(); // Use the same interval as keyboard
   });
   
   joystick.on('move', function(evt, data) {
-    if (!data) {
-      console.log('No data in move event');
+    if (!data || data.distance < 10) {
+      joystickDirection = null;
       return;
     }
     
-    console.log('📱 Joystick move - distance:', data.distance, 'angle:', data.angle?.degree);
-    
-    // Lower distance threshold for better responsiveness
-    if (data.distance < 10) {
-      console.log('Distance too low, clearing direction');
-      currentJoystickDirection = null;
-      return;
-    }
-    
-    // Get the angle in degrees
+    // Convert angle to direction
     let angle = data.angle.degree;
     let gameDir = null;
     
-    // Convert angle to direction with 8-way movement
     if (angle >= 337.5 || angle < 22.5) gameDir = 'right';
     else if (angle >= 22.5 && angle < 67.5) gameDir = 'up-right';
     else if (angle >= 67.5 && angle < 112.5) gameDir = 'up';
@@ -452,42 +411,18 @@ if (joystickZone) {
     else if (angle >= 247.5 && angle < 292.5) gameDir = 'down';
     else if (angle >= 292.5 && angle < 337.5) gameDir = 'down-right';
     
-    if (gameDir !== currentJoystickDirection) {
-      currentJoystickDirection = gameDir;
-      console.log('🎯 Direction changed to:', gameDir, 'at angle:', angle);
-    } else {
-      console.log('🔄 Direction maintained:', gameDir, 'at angle:', angle);
-    }
+    joystickDirection = gameDir;
+    console.log('🎯 Joystick direction:', gameDir, 'angle:', angle.toFixed(1));
   });
   
   joystick.on('end', function(evt, data) {
-    console.log('🎮 Joystick ended - stopping movement');
+    console.log('🎮 Joystick ended');
     isJoystickActive = false;
-    currentJoystickDirection = null;
-    stopContinuousMovement();
+    joystickDirection = null;
+    stopMovementInterval(); // Stop interval if no keyboard input either
   });
   
-  // Additional event for better tracking
-  joystick.on('dir', function(evt, data) {
-    console.log('📐 Direction event:', data);
-  });
-  
-  // Error handling
-  joystick.on('error', function(evt, data) {
-    console.error('Joystick error:', evt, data);
-  });
-  
-  console.log('Joystick event listeners attached');
-  
-  // Test function - you can call this from console to test
-  window.testJoystick = function() {
-    console.log('Testing joystick state:', {
-      isJoystickActive,
-      currentJoystickDirection,
-      intervalId: joystickMovementInterval,
-      joined
-    });
-  };
+  console.log('Joystick initialized and integrated with movement system');
 }
   </script>
 </body>
