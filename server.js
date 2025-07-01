@@ -42,11 +42,10 @@ function getIP(ws) {
 // Generate random maze parameters
 function getRandomMazeParams() {
   const difficulties = [
-    { size: [5, 3], extraPaths: 0.01, deadEnds: 0.01, falsePaths: 0, name: "Tiny" },
-    { size: [9, 7], extraPaths: 0.02, deadEnds: 0.01, falsePaths: 0, name: "Small" },
+    { size: [9, 7], extraPaths: 0.01, deadEnds: 0.01, falsePaths: 0, name: "Tiny" },
+    { size: [11, 9], extraPaths: 0.02, deadEnds: 0.01, falsePaths: 0, name: "Small" },
     { size: [13, 9], extraPaths: 0.03, deadEnds: 0.02, falsePaths: 0, name: "Medium" },
-    { size: [17, 13], extraPaths: 0.04, deadEnds: 0.03, falsePaths: 0, name: "Large" },
-    { size: [21, 15], extraPaths: 0.05, deadEnds: 0.04, falsePaths: 0, name: "Extra Large" }
+    { size: [17, 13], extraPaths: 0.04, deadEnds: 0.03, falsePaths: 0, name: "Large" }
   ];
   
   return difficulties[Math.floor(Math.random() * difficulties.length)];
