@@ -39,10 +39,12 @@ function getIP(ws) {
   return ws._socket.remoteAddress;
 }
 
-// Maze generation (simple DFS)
+// Enhanced maze generation with more complexity
 function generateMaze(width, height) {
   const maze = Array.from({ length: height }, () => Array(width).fill(1)); // 1=wall, 0=path
   function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
+  
+  // Initial DFS carving
   function carve(x, y) {
     maze[y][x] = 0;
     const dirs = [ [0,1], [1,0], [0,-1], [-1,0] ];
@@ -55,9 +57,53 @@ function generateMaze(width, height) {
       }
     }
   }
+  
   carve(1,1);
   maze[1][1] = 0; // Start
   maze[height-2][width-2] = 0; // End
+  
+  // Add additional complexity - create more paths and loops
+  const extraPaths = Math.floor((width * height) * 0.08); // 8% more paths
+  for (let i = 0; i < extraPaths; i++) {
+    const x = Math.floor(Math.random() * (width - 2)) + 1;
+    const y = Math.floor(Math.random() * (height - 2)) + 1;
+    
+    // Only carve if it's a wall and has path neighbors
+    if (maze[y][x] === 1) {
+      let pathNeighbors = 0;
+      const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height && maze[ny][nx] === 0) {
+          pathNeighbors++;
+        }
+      }
+      // Create path if it has 1-3 path neighbors (creates loops and connections)
+      if (pathNeighbors >= 1 && pathNeighbors <= 3) {
+        maze[y][x] = 0;
+      }
+    }
+  }
+  
+  // Add some dead ends for extra difficulty
+  const deadEnds = Math.floor((width * height) * 0.05); // 5% dead ends
+  for (let i = 0; i < deadEnds; i++) {
+    const x = Math.floor(Math.random() * (width - 4)) + 2;
+    const y = Math.floor(Math.random() * (height - 4)) + 2;
+    
+    // Create a short dead end branch
+    if (maze[y][x] === 1 && maze[y-1][x] === 0) { // Connect to path above
+      maze[y][x] = 0;
+      // Extend the dead end 1-2 cells
+      const length = Math.random() < 0.7 ? 1 : 2;
+      for (let j = 1; j <= length; j++) {
+        if (y + j < height - 1 && maze[y + j][x] === 1) {
+          maze[y + j][x] = 0;
+        }
+      }
+    }
+  }
+  
   return maze;
 }
 
