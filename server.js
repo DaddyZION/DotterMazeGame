@@ -44,8 +44,7 @@ function getRandomMazeParams() {
   const difficulties = [
     { size: [9, 7], extraPaths: 0.01, deadEnds: 0.01, falsePaths: 0, name: "Tiny" },
     { size: [11, 9], extraPaths: 0.02, deadEnds: 0.01, falsePaths: 0, name: "Small" },
-    { size: [13, 9], extraPaths: 0.03, deadEnds: 0.02, falsePaths: 0, name: "Medium" },
-    { size: [17, 13], extraPaths: 0.04, deadEnds: 0.03, falsePaths: 0, name: "Large" }
+    { size: [13, 9], extraPaths: 0.03, deadEnds: 0.02, falsePaths: 0, name: "Medium" }
   ];
   
   return difficulties[Math.floor(Math.random() * difficulties.length)];

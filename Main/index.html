@@ -350,107 +350,114 @@ window.addEventListener('keyup', function(e) {
   }
 });
 
-// Joystick for mobile with continuous movement
-if (window.innerWidth < 700 || /Mobi|Android/i.test(navigator.userAgent)) {
-  const joystickZone = document.getElementById('joystick');
-  if (joystickZone) {
-    let currentJoystickDirection = null;
-    let joystickMovementInterval = null;
-    let isJoystickActive = false;
-    
-    function updateJoystickMovement() {
-      if (!joined || !currentJoystickDirection || !isJoystickActive) return;
-      console.log('Sending joystick direction:', currentJoystickDirection);
-      sendDirection(currentJoystickDirection);
+// Joystick for mobile with continuous movement - Simplified and more robust
+const joystickZone = document.getElementById('joystick');
+if (joystickZone) {
+  let currentJoystickDirection = null;
+  let joystickMovementInterval = null;
+  let isJoystickActive = false;
+  
+  console.log('Initializing joystick...');
+  
+  function updateJoystickMovement() {
+    if (!joined) {
+      console.log('Not joined, skipping joystick movement');
+      return;
+    }
+    if (!currentJoystickDirection) {
+      console.log('No current direction, skipping joystick movement');
+      return;
+    }
+    if (!isJoystickActive) {
+      console.log('Joystick not active, skipping movement');
+      return;
+    }
+    console.log('✓ Sending joystick direction:', currentJoystickDirection);
+    sendDirection(currentJoystickDirection);
+  }
+  
+  const joystick = nipplejs.create({
+    zone: joystickZone,
+    mode: 'static',
+    position: { left: '50%', top: '50%' },
+    color: '#5a6cff',
+    size: 120,
+    threshold: 0.05,
+    restJoystick: true,
+    restOpacity: 0.6
+  });
+  
+  console.log('Joystick created:', joystick);
+  
+  joystick.on('start', function(evt, data) {
+    console.log('🎮 Joystick started - isJoystickActive = true');
+    isJoystickActive = true;
+    // Start continuous movement immediately
+    if (joystickMovementInterval) {
+      clearInterval(joystickMovementInterval);
+    }
+    joystickMovementInterval = setInterval(updateJoystickMovement, 120);
+    console.log('Interval started with ID:', joystickMovementInterval);
+  });
+  
+  joystick.on('move', function(evt, data) {
+    if (!data) {
+      console.log('No data in move event');
+      return;
     }
     
-    const joystick = nipplejs.create({
-      zone: joystickZone,
-      mode: 'static',
-      position: { left: '50%', top: '50%' },
-      color: '#5a6cff',
-      size: 120,
-      threshold: 0.1,
-      restJoystick: true,
-      restOpacity: 0.6
-    });
+    console.log('📱 Joystick move - distance:', data.distance, 'angle:', data.angle?.degree);
     
-    joystick.on('start', function(evt, data) {
-      console.log('Joystick started');
-      isJoystickActive = true;
-      // Start continuous movement when joystick is first touched
-      if (!joystickMovementInterval) {
-        joystickMovementInterval = setInterval(updateJoystickMovement, 150); // Update every 150ms for better control
-      }
-    });
-    
-    joystick.on('move', function(evt, data) {
-      if (!data || !isJoystickActive) return;
-      
-      // Check if we have enough distance from center
-      if (data.distance < 20) {
-        currentJoystickDirection = null;
-        return;
-      }
-      
-      // Get the angle in degrees
-      let angle = data.angle.degree;
-      let gameDir = null;
-      
-      // Convert angle to direction (0° is right, 90° is up)
-      // Note: nipplejs uses mathematical angles where 0° is right, 90° is up
-      if (angle >= 337.5 || angle < 22.5) gameDir = 'right';
-      else if (angle >= 22.5 && angle < 67.5) gameDir = 'up-right';
-      else if (angle >= 67.5 && angle < 112.5) gameDir = 'up';
-      else if (angle >= 112.5 && angle < 157.5) gameDir = 'up-left';
-      else if (angle >= 157.5 && angle < 202.5) gameDir = 'left';
-      else if (angle >= 202.5 && angle < 247.5) gameDir = 'down-left';
-      else if (angle >= 247.5 && angle < 292.5) gameDir = 'down';
-      else if (angle >= 292.5 && angle < 337.5) gameDir = 'down-right';
-      
-      if (gameDir !== currentJoystickDirection) {
-        currentJoystickDirection = gameDir;
-        console.log('Joystick direction changed to:', gameDir, 'angle:', angle, 'distance:', data.distance);
-      }
-    });
-    
-    joystick.on('end', function(evt, data) {
-      console.log('Joystick ended');
-      isJoystickActive = false;
+    // Lower distance threshold for better responsiveness
+    if (data.distance < 15) {
+      console.log('Distance too low, clearing direction');
       currentJoystickDirection = null;
-      if (joystickMovementInterval) {
-        clearInterval(joystickMovementInterval);
-        joystickMovementInterval = null;
-      }
-    });
+      return;
+    }
     
-    // Also handle plain event for immediate response
-    joystick.on('plain', function(evt, data) {
-      if (!data || !isJoystickActive) return;
-      
-      // Check if we have enough distance from center
-      if (data.distance < 20) {
-        currentJoystickDirection = null;
-        return;
-      }
-      
-      // Get the angle in degrees
-      let angle = data.angle.degree;
-      let gameDir = null;
-      
-      // Convert angle to direction
-      if (angle >= 337.5 || angle < 22.5) gameDir = 'right';
-      else if (angle >= 22.5 && angle < 67.5) gameDir = 'up-right';
-      else if (angle >= 67.5 && angle < 112.5) gameDir = 'up';
-      else if (angle >= 112.5 && angle < 157.5) gameDir = 'up-left';
-      else if (angle >= 157.5 && angle < 202.5) gameDir = 'left';
-      else if (angle >= 202.5 && angle < 247.5) gameDir = 'down-left';
-      else if (angle >= 247.5 && angle < 292.5) gameDir = 'down';
-      else if (angle >= 292.5 && angle < 337.5) gameDir = 'down-right';
-      
+    // Get the angle in degrees
+    let angle = data.angle.degree;
+    let gameDir = null;
+    
+    // Convert angle to direction with wider ranges for easier control
+    if (angle >= 315 || angle < 45) gameDir = 'right';
+    else if (angle >= 45 && angle < 135) gameDir = 'up';
+    else if (angle >= 135 && angle < 225) gameDir = 'left';
+    else if (angle >= 225 && angle < 315) gameDir = 'down';
+    
+    // Add diagonal support with tighter ranges
+    if (angle >= 337.5 || angle < 22.5) gameDir = 'right';
+    else if (angle >= 22.5 && angle < 67.5) gameDir = 'up-right';
+    else if (angle >= 67.5 && angle < 112.5) gameDir = 'up';
+    else if (angle >= 112.5 && angle < 157.5) gameDir = 'up-left';
+    else if (angle >= 157.5 && angle < 202.5) gameDir = 'left';
+    else if (angle >= 202.5 && angle < 247.5) gameDir = 'down-left';
+    else if (angle >= 247.5 && angle < 292.5) gameDir = 'down';
+    else if (angle >= 292.5 && angle < 337.5) gameDir = 'down-right';
+    
+    if (gameDir !== currentJoystickDirection) {
       currentJoystickDirection = gameDir;
-    });
-  }
+      console.log('🎯 Direction changed to:', gameDir, 'at angle:', angle);
+    }
+  });
+  
+  joystick.on('end', function(evt, data) {
+    console.log('🎮 Joystick ended - stopping movement');
+    isJoystickActive = false;
+    currentJoystickDirection = null;
+    if (joystickMovementInterval) {
+      console.log('Clearing interval:', joystickMovementInterval);
+      clearInterval(joystickMovementInterval);
+      joystickMovementInterval = null;
+    }
+  });
+  
+  // Error handling
+  joystick.on('error', function(evt, data) {
+    console.error('Joystick error:', evt, data);
+  });
+  
+  console.log('Joystick event listeners attached');
 }
   </script>
 </body>
