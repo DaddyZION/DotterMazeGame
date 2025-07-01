@@ -1,7 +1,8 @@
 // server.js
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: 8080 });
-console.log('Maze Race WebSocket server started on ws://localhost:8080');
+const port = process.env.PORT || 8080;
+const wss = new WebSocket.Server({ port: port });
+console.log(`Maze Race WebSocket server started on ws://localhost:${port}`);
 
 const users = {}; // username: { x, y, color, ws, ip, sprite }
 const DOT_SIZE = 48;

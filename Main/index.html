@@ -110,7 +110,7 @@ document.getElementById('enterBtn').onclick = function(e) {
   username = baseName + (digits ? digits : '');
   if (!baseName) return alert('Please select a name!');
   color = pickedColor;
-  socket = new WebSocket('ws://localhost:8080');
+  socket = new WebSocket('wss://medieval-saba-daddyzion-57e9a7c2.koyeb.app/');
   socket.onopen = function() {
     socket.send(JSON.stringify({ type: 'join', username, color }));
     joined = true;

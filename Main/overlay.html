@@ -45,7 +45,7 @@
   <div id="maze"></div>
   <div id="scoreboard" style="position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#18183aee;color:#ffd700;font-size:2rem;padding:10px 36px;border-radius:18px;z-index:100000;text-align:center;box-shadow:0 2px 24px #000a;letter-spacing:0.04em;min-width:320px;display:none;"></div>
   <script>
-const socket = new WebSocket('ws://localhost:8080');
+const socket = new WebSocket('wss://medieval-saba-daddyzion-57e9a7c2.koyeb.app/');
 const overlay = document.getElementById('overlay');
 const characters = {}; // username: { div, x, y, tx, ty, color }
 const scores = {};
