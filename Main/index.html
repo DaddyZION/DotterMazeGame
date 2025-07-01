@@ -348,10 +348,18 @@ window.addEventListener('keyup', function(e) {
   }
 });
 
-// Joystick for mobile
+// Joystick for mobile with continuous movement
 if (window.innerWidth < 700 || /Mobi|Android/i.test(navigator.userAgent)) {
   const joystickZone = document.getElementById('joystick');
   if (joystickZone) {
+    let currentJoystickDirection = null;
+    let joystickMovementInterval = null;
+    
+    function updateJoystickMovement() {
+      if (!joined || !currentJoystickDirection) return;
+      sendDirection(currentJoystickDirection);
+    }
+    
     const joystick = nipplejs.create({
       zone: joystickZone,
       mode: 'static',
@@ -359,6 +367,14 @@ if (window.innerWidth < 700 || /Mobi|Android/i.test(navigator.userAgent)) {
       color: '#5a6cff',
       size: 120
     });
+    
+    joystick.on('start', function(evt, data) {
+      // Start continuous movement when joystick is first touched
+      if (!joystickMovementInterval) {
+        joystickMovementInterval = setInterval(updateJoystickMovement, 100); // Update every 100ms
+      }
+    });
+    
     joystick.on('dir', function(evt, data) {
       if (!data || !data.direction) return;
       let dir = data.direction.angle;
@@ -372,7 +388,16 @@ if (window.innerWidth < 700 || /Mobi|Android/i.test(navigator.userAgent)) {
       else if (dir === 'up right') gameDir = 'up-right';
       else if (dir === 'down left') gameDir = 'down-left';
       else if (dir === 'down right') gameDir = 'down-right';
-      if (gameDir) sendDirection(gameDir);
+      currentJoystickDirection = gameDir;
+    });
+    
+    joystick.on('end', function(evt, data) {
+      // Stop continuous movement when joystick is released
+      currentJoystickDirection = null;
+      if (joystickMovementInterval) {
+        clearInterval(joystickMovementInterval);
+        joystickMovementInterval = null;
+      }
     });
   }
 }
