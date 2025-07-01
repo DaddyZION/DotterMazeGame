@@ -297,6 +297,7 @@ function updateMovement() {
   // Check joystick first (joystick takes priority over keyboard)
   if (isJoystickActive && joystickDirection) {
     dir = joystickDirection;
+    console.log('JOYSTICK MOVE:', dir); // Debug: show when joystick should move
   }
   // If no joystick input, check keyboard
   else if (pressedKeys.size > 0) {
@@ -334,8 +335,27 @@ function updateMovement() {
 }
 
 function startMovementInterval() {
+  console.log('START INTERVAL REQUEST - current state:', { movementInterval, isJoystickActive, joystickDirection, pressedKeysSize: pressedKeys.size });
   if (!movementInterval) {
-    movementInterval = setInterval(updateMovement, 100); // Update every 100ms
+    movementInterval = setInterval(updateMovement, 100);
+    console.log('INTERVAL STARTED:', movementInterval);
+  } else {
+    console.log('INTERVAL ALREADY RUNNING:', movementInterval);
+  }
+}
+
+function stopMovementInterval() {
+  console.log('STOP INTERVAL REQUEST - current state:', { movementInterval, isJoystickActive, joystickDirection, pressedKeysSize: pressedKeys.size });
+  
+  // Only stop if BOTH keyboard and joystick are inactive
+  const shouldStop = pressedKeys.size === 0 && !isJoystickActive;
+  
+  if (shouldStop && movementInterval) {
+    clearInterval(movementInterval);
+    movementInterval = null;
+    console.log('INTERVAL STOPPED');
+  } else {
+    console.log('INTERVAL KEPT RUNNING - keyboard:', pressedKeys.size, 'joystick:', isJoystickActive);
   }
 }
 
@@ -453,40 +473,61 @@ if (joystickZone) {
   }
   
   function startJoystick(clientX, clientY) {
+    console.log('JOYSTICK START');
     isDragging = true;
     isJoystickActive = true;
     baseRect = joystickBase.getBoundingClientRect();
     joystickBase.style.background = 'rgba(90, 108, 255, 0.3)';
     
-    // Immediately update direction and start interval
+    // Immediately update direction
     const direction = updateJoystickPosition(clientX, clientY);
     joystickDirection = direction;
     lastDirection = direction;
     
-    startMovementInterval();
-    console.log('Joystick started, direction:', direction);
+    console.log('JOYSTICK START - Setting state:', { isJoystickActive, joystickDirection });
+    
+    // Force start interval and ensure it's running
+    if (movementInterval) {
+      clearInterval(movementInterval);
+    }
+    movementInterval = setInterval(updateMovement, 100);
+    console.log('FORCE STARTED INTERVAL:', movementInterval);
   }
   
   function moveJoystick(clientX, clientY) {
     if (!isDragging) return;
     
     const direction = updateJoystickPosition(clientX, clientY);
+    // Always update direction, even if it's the same
+    joystickDirection = direction;
+    
     if (direction !== lastDirection) {
-      joystickDirection = direction;
       lastDirection = direction;
-      console.log('Direction:', direction);
+      console.log('JOYSTICK DIRECTION CHANGE:', direction);
+    }
+    
+    // Ensure interval is still running
+    if (!movementInterval && isJoystickActive) {
+      console.log('RESTARTING LOST INTERVAL');
+      movementInterval = setInterval(updateMovement, 100);
     }
   }
   
   function endJoystick() {
+    console.log('JOYSTICK END');
     isDragging = false;
     isJoystickActive = false;
     joystickDirection = null;
     lastDirection = null;
     joystickBase.style.background = 'rgba(255,255,255,0.2)';
     joystickKnob.style.transform = 'translate(-20px, -20px)';
-    stopMovementInterval();
-    console.log('Joystick ended');
+    
+    // Only stop if no keyboard input
+    if (pressedKeys.size === 0 && movementInterval) {
+      clearInterval(movementInterval);
+      movementInterval = null;
+      console.log('STOPPED INTERVAL');
+    }
   }
   
   // Touch events - ensure proper event handling
@@ -540,6 +581,30 @@ if (joystickZone) {
   
   console.log('Custom mobile joystick ready');
 }
+
+// Test function for debugging
+window.testJoystickState = function() {
+  console.log('=== JOYSTICK DEBUG ===');
+  console.log('isJoystickActive:', isJoystickActive);
+  console.log('joystickDirection:', joystickDirection);
+  console.log('joined:', joined);
+  console.log('movementInterval:', movementInterval);
+  console.log('pressedKeys size:', pressedKeys.size);
+  console.log('===================');
+};
+
+// Force joystick test
+window.forceJoystickMove = function(dir) {
+  console.log('FORCING JOYSTICK MOVE:', dir);
+  isJoystickActive = true;
+  joystickDirection = dir;
+  startMovementInterval();
+  setTimeout(() => {
+    isJoystickActive = false;
+    joystickDirection = null;
+    stopMovementInterval();
+  }, 2000);
+};
   </script>
 </body>
 </html>
