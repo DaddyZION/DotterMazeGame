@@ -130,7 +130,7 @@ document.getElementById('enterBtn').onclick = function(e) {
       renderPlayers(msg.users);
     }
     if (msg.type === 'winner') {
-      alert(msg.username + ' reached the end of the maze!');
+      // Winner notification removed - no popup
     }
     if (msg.type === 'error') {
       alert(msg.message);
