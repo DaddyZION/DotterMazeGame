@@ -42,11 +42,11 @@ function getIP(ws) {
 // Generate random maze parameters
 function getRandomMazeParams() {
   const difficulties = [
-    { size: [15, 11], extraPaths: 0.06, deadEnds: 0.04, falsePaths: 0.02, name: "Easy" },
-    { size: [19, 13], extraPaths: 0.10, deadEnds: 0.08, falsePaths: 0.05, name: "Medium" },
-    { size: [25, 17], extraPaths: 0.13, deadEnds: 0.10, falsePaths: 0.07, name: "Hard" },
-    { size: [29, 19], extraPaths: 0.16, deadEnds: 0.12, falsePaths: 0.09, name: "Very Hard" },
-    { size: [31, 21], extraPaths: 0.20, deadEnds: 0.15, falsePaths: 0.12, name: "Extreme" }
+    { size: [5, 3], extraPaths: 0.02, deadEnds: 0.01, falsePaths: 0.01, name: "Tiny" },
+    { size: [9, 7], extraPaths: 0.04, deadEnds: 0.02, falsePaths: 0.01, name: "Small" },
+    { size: [13, 9], extraPaths: 0.06, deadEnds: 0.04, falsePaths: 0.02, name: "Medium" },
+    { size: [17, 13], extraPaths: 0.10, deadEnds: 0.08, falsePaths: 0.05, name: "Large" },
+    { size: [21, 15], extraPaths: 0.13, deadEnds: 0.10, falsePaths: 0.07, name: "Extra Large" }
   ];
   
   return difficulties[Math.floor(Math.random() * difficulties.length)];
@@ -316,6 +316,7 @@ wss.on('connection', ws => {
             client.send(JSON.stringify({ 
               type: 'winner', 
               username: currentUser,
+              sprite: users[currentUser].sprite,
               difficulty: currentDifficulty.name,
               size: `${currentDifficulty.size[0]}x${currentDifficulty.size[1]}`
             }));
